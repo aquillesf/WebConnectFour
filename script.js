@@ -335,12 +335,12 @@ document.getElementById("no").onclick = function() {
 
 document.onkeyup = function(e) {
     if (uiLoaded) {
-        if (e.keyCode == 37) { // Seta esquerda
+        if (e.keyCode == 37) { 
             currentColumn--;
             if (currentColumn < 0) {
                 currentColumn = 0;
             }
-        } else if (e.keyCode == 39) { // Seta direita
+        } else if (e.keyCode == 39) { 
             currentColumn++;
             if (currentColumn > 6) {
                 currentColumn = 6;
@@ -352,14 +352,12 @@ document.onkeyup = function(e) {
                     boardPosition += currentColumn;
                     drawBoard(boardPosition);
                     
-                    // Verificar se o jogador ganhou
                     if (checkWin(boardPosition)) {
                         aiGameWon = true;
                         drawBoard(boardPosition);
                         return;
                     }
                     
-                    // Bot faz sua jogada
                     botGoing = true;
                     let randomWaitTime = randomNumber(500, 1500);
                     
