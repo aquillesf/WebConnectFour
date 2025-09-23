@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect 4</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="centered">
+        <div>
+            <h2 id="title">Connect 4</h2>
+            <canvas id="game" width="700" height="630"></canvas>
+            <div>
+                <button class="panel-btn" id="resign">Desistir</button>
+                <button class="panel-btn" id="theme-change">Mudar o tema</button>  
+                <button class="panel-btn" id="change-mode">Mudar o modo</button>
+            </div>
+            <div id="resign-panel" style="display: none;">
+                <p>Você tem certeza que quer desistir?</p>
+                <button class="panel-btn" id="yes" style="background-color: rgb(61, 224, 96); width: 70px; margin-top: 0;">Sim</button>
+                <button class="panel-btn" id="no" style="background-color: rgb(224, 61, 61); width: 70px; margin-top: 0;">Não</button>
+            </div>
+        </div>
+        <div id="nav-bar">
+            <h2>Selecione o modo de jogo:</h2>
+            <input type="radio" id="two-player" value="two-player" name="game-mode" class="choose" checked>
+            <label for="two-player">2 Jogadores</label>
+            <p></p>
+            <input type="radio" id="single-player" value="single" name="game-mode" class="choose">
+            <label for="single-player">1 Jogador (vs Bot)</label>
+            <p></p>
+            <button id="start-game" class="unsadden">Começar</button>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
