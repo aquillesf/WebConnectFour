@@ -123,11 +123,9 @@ function getCount(position) {
     return responseObject;
 }
 
-// Bot AI - Implementação usando minimax
 function evaluateBoard(board) {
     let score = 0;
     
-    // Avaliar todas as possíveis sequências de 4
     for (let i = 0; i < winningArrays.length; i++) {
         let vals = [];
         for (let j = 0; j < winningArrays[i].length; j++) {
@@ -309,7 +307,6 @@ function drawBoard(position) {
     }
 }
 
-// Event Listeners
 document.getElementById("resign").onclick = function() {
     if (uiLoaded) {
         document.getElementById("resign-panel").style.display = "block";
@@ -345,7 +342,7 @@ document.onkeyup = function(e) {
             if (currentColumn > 6) {
                 currentColumn = 6;
             }
-        } else if (e.keyCode == 32) { // Espaço
+        } else if (e.keyCode == 32) { 
             if (gameMode == "single" && !aiGameWon && !botGoing) {
                 let currentState = getCount(boardPosition);
                 if (parseInt(currentState[currentColumn]) < 6) {
