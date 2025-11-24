@@ -218,52 +218,117 @@ const emitAdminStatsSafe = () => {
 
 queueManager.setChangeCallback(emitAdminStatsSafe);
 
-const requireSession = (req, res, next) => {
+// ==========================================
+// MIDDLEWARE DE AUTENTICAÇÃO PARA PÁGINAS HTML
+// ==========================================
+
+// Páginas públicas (não requerem login)
+const publicPages = ['/login.html', '/signup.html'];
+
+// Middleware para verificar autenticação em todas as páginas HTML
+app.use((req, res, next) => {
+  // Se for uma requisição de arquivo estático (CSS, JS, imagens)
+  if (req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
+    return next();
+  }
+
+  // Se for uma rota de API, deixa passar (será verificada pelos middlewares específicos)
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
+
+  // Se for socket.io
+  if (req.path.startsWith('/socket.io/')) {
+    return next();
+  }
+
+  // Se for uma página pública, permite acesso
+  if (publicPages.includes(req.path)) {
+    // Se já está logado e tenta acessar login/signup, redireciona
+    if (req.session.userId) {
+      return res.redirect('/index.html');
+    }
+    return next();
+  }
+
+  // Para qualquer outra página, verifica se está autenticado
   if (!req.session.userId) {
     return res.redirect('/login.html');
   }
-  return next();
-};
 
-const requireAdminPage = (req, res, next) => {
+  // Se for admin page, verifica se é admin
+  if (req.path === '/admin.html' && !req.session.isAdmin) {
+    return res.redirect('/index.html');
+  }
+
+  next();
+});
+
+// ==========================================
+// ROTAS DE PÁGINAS
+// ==========================================
+
+// Rota raiz - redireciona baseado no estado de login
+app.get('/', (req, res) => {
+  if (!req.session.userId) {
+    return res.redirect('/login.html');
+  }
+  if (req.session.isAdmin) {
+    return res.redirect('/admin.html');
+  }
+  return res.redirect('/index.html');
+});
+
+// Página de login
+app.get('/login.html', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/index.html');
+  }
+  res.sendFile(path.join(publicDir, 'login.html'));
+});
+
+// Página de cadastro
+app.get('/signup.html', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/index.html');
+  }
+  res.sendFile(path.join(publicDir, 'signup.html'));
+});
+
+// Página principal do jogo (requer autenticação)
+app.get('/index.html', (req, res) => {
+  if (!req.session.userId) {
+    return res.redirect('/login.html');
+  }
+  res.sendFile(path.join(publicDir, 'index.html'));
+});
+
+// Página de perfil (requer autenticação)
+app.get('/profile.html', (req, res) => {
+  if (!req.session.userId) {
+    return res.redirect('/login.html');
+  }
+  res.sendFile(path.join(publicDir, 'profile.html'));
+});
+
+// Página de admin (requer autenticação E ser admin)
+app.get('/admin.html', (req, res) => {
   if (!req.session.userId) {
     return res.redirect('/login.html');
   }
   if (!req.session.isAdmin) {
     return res.redirect('/index.html');
   }
-  return next();
-};
-
-app.get('/', (req, res) => {
-  if (!req.session.userId) {
-    return res.redirect('/login.html');
-  }
-  return res.redirect('/index.html');
-});
-
-app.get('/login.html', (req, res) => {
-  if (req.session.userId) {
-    return res.redirect('/index.html');
-  }
-  return res.sendFile(path.join(publicDir, 'login.html'));
-});
-
-app.get('/index.html', requireSession, (req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
-});
-
-app.get('/profile.html', requireSession, (req, res) => {
-  res.sendFile(path.join(publicDir, 'profile.html'));
-});
-
-app.get('/admin.html', requireAdminPage, (req, res) => {
   res.sendFile(path.join(publicDir, 'admin.html'));
 });
 
+// Servir arquivos estáticos (CSS, JS, imagens)
 app.use(express.static('public'));
 
-// API Routes
+// ==========================================
+// ROTAS DE API
+// ==========================================
+
 app.use('/api/auth', authRoutes);
 app.use('/api/game', gameRoutes);
 app.use('/api/admin', adminRoutes);
@@ -634,6 +699,19 @@ setInterval(() => {
   queueManager.checkInactivity();
 }, 10000);
 
+// Rota 404 para páginas não encontradas
+app.use((req, res, next) => {
+  // Se for uma requisição HTML e não encontrou, redireciona para login
+  if (req.accepts('html')) {
+    return res.redirect('/login.html');
+  }
+  // Se for API, retorna 404 JSON
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ success: false, message: 'Rota não encontrada' });
+  }
+  next();
+});
+
 app.use((err, req, res, next) => {
   console.error('Erro:', err);
   res.status(500).json({
@@ -650,6 +728,7 @@ server.listen(PORT, () => {
 ║   🚀 Servidor rodando na porta ${PORT}  ║
 ║   📡 Socket.IO habilitado            ║
 ║   💾 MongoDB conectado               ║
+║   🔒 Autenticação ativa              ║
 ╚═══════════════════════════════════════╝
   `);
 });
