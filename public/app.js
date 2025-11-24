@@ -173,6 +173,7 @@ async function loadLeaderboard() {
 }
 
 async function loadQueueSnapshot() {
+  
   try {
     const response = await fetch(`${QUEUE_BASE}/state`, { credentials: 'include' });
     const data = await response.json();
