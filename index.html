@@ -1,31 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connect 4</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400;600&display=swap" rel="stylesheet">
 </head>
+
 <body>
+    <button class="unsadden" id="dark-mode-btn">Modo Escuro</button>
+
     <div id="centered">
-        <div>
-            <h2 id="title">Connect 4</h2>
-            <canvas id="game" width="700" height="630"></canvas>
-            <div>
-                <button class="panel-btn" id="resign">Desistir</button>
-                <button class="panel-btn" id="theme-change">Mudar o tema</button>  
-                <button class="panel-btn" id="change-mode">Mudar o modo</button>
+        <div class="game-layout">
+            <div class="game-main">
+                <h2 id="title">Connect 4</h2>
+                <canvas id="game" width="700" height="630"></canvas>
+                <div>
+                    <button class="panel-btn" id="resign">Desistir</button>
+                    <button class="panel-btn" id="theme-change">Mudar o tema</button>
+                    <button class="panel-btn" id="change-mode">Mudar o modo</button>
+                    <button class="panel-btn" id="profile-btn">Perfil</button>
+                </div>
+                <div id="resign-panel" style="display: none;">
+                    <p>Você tem certeza que quer desistir?</p>
+                    <button class="panel-btn" id="yes"
+                        style="background-color: rgb(61, 224, 96); width: 70px; margin-top: 0;">Sim</button>
+                    <button class="panel-btn" id="no"
+                        style="background-color: rgb(224, 61, 61); width: 70px; margin-top: 0;">Não</button>
+                </div>
             </div>
-            <div id="resign-panel" style="display: none;">
-                <p>Você tem certeza que quer desistir?</p>
-                <button class="panel-btn" id="yes" style="background-color: rgb(61, 224, 96); width: 70px; margin-top: 0;">Sim</button>
-                <button class="panel-btn" id="no" style="background-color: rgb(224, 61, 61); width: 70px; margin-top: 0;">Não</button>
+
+            <div class="sidebar">
+                <aside class="player-queue">
+                    <h3>👥 Fila de Jogadores</h3>
+                    <ul class="queue-list" id="queue-list">
+                    </ul>
+                    <button class="join-queue-btn" id="join-queue-btn">Entrar na Fila</button>
+                </aside>
+
+                <aside class="leaderboard">
+                    <h3>🏆 Placar</h3>
+                    <ul class="leaderboard-list" id="leaderboard-list">
+                    </ul>
+                </aside>
             </div>
         </div>
+
         <div id="nav-bar">
             <h2>Selecione o modo de jogo:</h2>
             <input type="radio" id="two-player" value="two-player" name="game-mode" class="choose" checked>
@@ -37,7 +60,8 @@
             <button id="start-game" class="unsadden">Começar</button>
         </div>
     </div>
-    
+
     <script src="script.js"></script>
 </body>
+
 </html>

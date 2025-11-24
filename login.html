@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Connect 4</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <button class="panel-btn unsadden" id="dark-mode-btn" style="position: absolute; top: 20px; right: 20px;">Modo
+        Escuro</button>
+
+    <div id="centered">
+        <div class="auth-panel">
+            <h2 class="auth-title">Entrar</h2>
+
+            <label class="auth-label" for="login-user">Usuário</label>
+            <input type="text" id="login-user" class="auth-input">
+
+            <label class="auth-label" for="login-pass">Senha</label>
+            <input type="password" id="login-pass" class="auth-input">
+
+            <button class="panel-btn unsadden auth-btn" id="login-btn">Entrar</button>
+
+            <p class="auth-link">
+                Ainda não tem conta?
+                <span id="goto-signup" class="auth-highlight">Criar conta</span>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("goto-signup").onclick = () => {
+            window.location.href = "signup.html";
+        };
+
+        document.getElementById("login-btn").onclick = () => {
+            window.location.href = "index.html";
+        };
+
+        const darkBtn = document.getElementById("dark-mode-btn");
+        let darkMode = localStorage.getItem("darkMode") === "true";
+
+        if (darkMode) {
+            document.body.classList.add("dark");
+            darkBtn.textContent = "Modo Claro";
+        }
+
+        darkBtn.onclick = function () {
+            darkMode = !darkMode;
+            document.body.classList.toggle("dark");
+            localStorage.setItem("darkMode", darkMode);
+
+            if (darkMode) {
+                darkBtn.textContent = "Modo Claro";
+            } else {
+                darkBtn.textContent = "Modo Escuro";
+            }
+        };
+    </script>
+</body>
+
+</html>

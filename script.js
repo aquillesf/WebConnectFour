@@ -1,6 +1,93 @@
+// Queue Management
+let playerQueue = [];
+const currentUser = "JoãoSilva";
+const userAvatar = "1";
+
+function initializeQueue() {
+    const savedQueue = JSON.parse(localStorage.getItem("playerQueue") || "[]");
+
+    if (savedQueue.length === 0) {
+        playerQueue = [
+            { name: "JoãoSilva", avatar: "1", status: "playing" },
+            { name: "MariaSantos", avatar: "2", status: "waiting" },
+            { name: "PedroLima", avatar: "3", status: "waiting" },
+            { name: "AnaCarla", avatar: "4", status: "waiting" }
+        ];
+    } else {
+        playerQueue = savedQueue;
+    }
+
+    updateQueueDisplay();
+}
+
+function updateQueueDisplay() {
+    const queueList = document.getElementById("queue-list");
+    const joinBtn = document.getElementById("join-queue-btn");
+
+    if (!queueList) return;
+
+    const isInQueue = playerQueue.some(p => p.name === currentUser);
+
+    if (joinBtn) {
+        joinBtn.textContent = isInQueue ? "Sair da Fila" : "Entrar na Fila";
+    }
+
+    queueList.innerHTML = playerQueue.map((player, index) => {
+        const isPlaying = player.status === "playing";
+        const playingClass = isPlaying ? "playing" : "";
+
+        return `
+            <li class="queue-item ${playingClass}">
+                <span class="queue-position">${index + 1}</span>
+                <div class="queue-avatar">
+                    <img src="Profile Pictures/${player.avatar}.jpg" alt="Avatar">
+                </div>
+                <div class="queue-info">
+                    <div class="queue-name">${player.name}</div>
+                    <div class="queue-status ${isPlaying ? 'playing' : ''}">
+                        ${isPlaying ? '🎮 Jogando agora' : '⏳ Aguardando'}
+                    </div>
+                </div>
+            </li>
+        `;
+    }).join("");
+
+    localStorage.setItem("playerQueue", JSON.stringify(playerQueue));
+}
+
+function moveQueueForward() {
+    if (playerQueue.length > 0) {
+        playerQueue.shift();
+        if (playerQueue.length > 0) {
+            playerQueue[0].status = "playing";
+        }
+        updateQueueDisplay();
+    }
+}
+
+const joinQueueBtn = document.getElementById("join-queue-btn");
+if (joinQueueBtn) {
+    joinQueueBtn.onclick = function () {
+        const isInQueue = playerQueue.some(p => p.name === currentUser);
+
+        if (isInQueue) {
+            playerQueue = playerQueue.filter(p => p.name !== currentUser);
+        } else {
+            playerQueue.push({
+                name: currentUser,
+                avatar: localStorage.getItem("selectedAvatar") || userAvatar,
+                status: "waiting"
+            });
+        }
+
+        updateQueueDisplay();
+    };
+}
+
+// Original Connect 4 code
 const startGame = document.getElementById("start-game");
 const canvas = document.getElementById("game");
-const display = canvas.getContext("2d");
+const display = canvas ? canvas.getContext("2d") : null;
 
 let radios = document.getElementsByName("game-mode");
 let gameMode = "";
@@ -40,7 +127,7 @@ const winningArrays = [
 ];
 
 function getId(id) {
-    return {row: Math.floor(id/7), col: id % 7};
+    return { row: Math.floor(id / 7), col: id % 7 };
 }
 
 function positionToBoard(position) {
@@ -52,25 +139,25 @@ function positionToBoard(position) {
         [0, 0, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 0, 0, 0]
     ];
-    
+
     for (let i = 0; i < position.length; i++) {
         let columnMap = [];
         board.forEach((row) => {
             columnMap.push(row[parseInt(position[i])]);
         });
-        
+
         let farthestDown = 0;
         for (let j = 0; j < columnMap.length; j++) {
             if (columnMap[j] == 0) {
                 farthestDown++;
             }
         }
-        
+
         if (farthestDown > 0) {
             board[farthestDown - 1][parseInt(position[i])] = (i % 2) + 1;
         }
     }
-    return board;  
+    return board;
 }
 
 function checkWin(position) {
@@ -80,12 +167,12 @@ function checkWin(position) {
         for (let j = 0; j < winningArrays[i].length; j++) {
             vals.push(getId(winningArrays[i][j]));
         }
-        if (board[vals[0].row][vals[0].col] == board[vals[1].row][vals[1].col] && 
-            board[vals[0].row][vals[0].col] == board[vals[2].row][vals[2].col] && 
+        if (board[vals[0].row][vals[0].col] == board[vals[1].row][vals[1].col] &&
+            board[vals[0].row][vals[0].col] == board[vals[2].row][vals[2].col] &&
             board[vals[0].row][vals[0].col] == board[vals[3].row][vals[3].col]) {
-            if (board[vals[0].row][vals[0].col] != 0) { 
+            if (board[vals[0].row][vals[0].col] != 0) {
                 return true;
-            } 
+            }
         }
     }
     return false;
@@ -93,6 +180,7 @@ function checkWin(position) {
 
 let colors = ["#ffffff", "#fc5b5b", "#effc5b"];
 let backgroundColor = "rgb(93, 152, 255)";
+let boardColor = "rgb(93, 152, 255)";
 
 let uiLoaded = false;
 let currentColumn = 0;
@@ -115,8 +203,8 @@ let boardThemesBaseNames = [
 
 let boardThemeIndex = 0;
 
-function getCount(position) {  
-    let responseObject = {"0": 0,"1": 0,"2": 0,"3": 0,"4": 0,"5": 0,"6": 0};
+function getCount(position) {
+    let responseObject = { "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0 };
     for (let i = 0; i < position.length; i++) {
         responseObject[position[i]]++;
     }
@@ -125,21 +213,21 @@ function getCount(position) {
 
 function evaluateBoard(board) {
     let score = 0;
-    
+
     for (let i = 0; i < winningArrays.length; i++) {
         let vals = [];
         for (let j = 0; j < winningArrays[i].length; j++) {
             vals.push(getId(winningArrays[i][j]));
         }
-        
+
         let pieces = [];
         for (let k = 0; k < vals.length; k++) {
             pieces.push(board[vals[k].row][vals[k].col]);
         }
-        
+
         score += evaluateSequence(pieces);
     }
-    
+
     return score;
 }
 
@@ -148,23 +236,23 @@ function evaluateSequence(pieces) {
     let humanPieces = 0;
     let botPieces = 0;
     let empty = 0;
-    
+
     for (let piece of pieces) {
         if (piece == 1) humanPieces++;
         else if (piece == 2) botPieces++;
         else empty++;
     }
-    
+
     if (botPieces == 4) score += 1000;
     else if (botPieces == 3 && empty == 1) score += 100;
     else if (botPieces == 2 && empty == 2) score += 10;
     else if (botPieces == 1 && empty == 3) score += 1;
-    
+
     if (humanPieces == 4) score -= 1000;
     else if (humanPieces == 3 && empty == 1) score -= 100;
     else if (humanPieces == 2 && empty == 2) score -= 10;
     else if (humanPieces == 1 && empty == 3) score -= 1;
-    
+
     return score;
 }
 
@@ -179,11 +267,11 @@ function makeMove(position, col) {
 
 function minimax(position, depth, isMaximizing, alpha, beta) {
     let board = positionToBoard(position);
-    
+
     if (checkWin(position) || depth === 0) {
         return evaluateBoard(board);
     }
-    
+
     if (isMaximizing) {
         let maxEval = -Infinity;
         for (let col = 0; col < 7; col++) {
@@ -214,19 +302,19 @@ function minimax(position, depth, isMaximizing, alpha, beta) {
 function getBestMove(position) {
     let bestMove = -1;
     let bestValue = -Infinity;
-    
+
     for (let col = 0; col < 7; col++) {
         if (isValidMove(position, col)) {
             let newPosition = makeMove(position, col);
             let moveValue = minimax(newPosition, 4, false, -Infinity, Infinity);
-            
+
             if (moveValue > bestValue) {
                 bestValue = moveValue;
                 bestMove = col;
             }
         }
     }
-    
+
     return bestMove;
 }
 
@@ -234,69 +322,72 @@ function randomNumber(min, max) {
     return Math.round(Math.random() * (max - min) + min);
 }
 
-startGame.onclick = () => {
-    const panel = document.getElementById("nav-bar");
-    panel.style.display = "none";
-    document.body.style.backgroundColor = "white";
-    
-    for (var i = 0; i < radios.length; i++) {
-        if (radios[i].checked) {
-            gameMode = radios[i].value;
-            break;
+if (startGame) {
+    startGame.onclick = () => {
+        const panel = document.getElementById("nav-bar");
+        panel.style.display = "none";
+
+        for (var i = 0; i < radios.length; i++) {
+            if (radios[i].checked) {
+                gameMode = radios[i].value;
+                break;
+            }
         }
-    }
-    
-    uiLoaded = true;
-    drawBoard(boardPosition);
-    
-    const buttons = document.getElementsByTagName('button');
-    for (let button of buttons) {
-        button.className = "unsadden";
-    }
-    
-    console.log(`Game mode -> ${gameMode}`);
-};
+
+        uiLoaded = true;
+        drawBoard(boardPosition);
+
+        const buttons = document.getElementsByTagName('button');
+        for (let button of buttons) {
+            button.className = "unsadden";
+        }
+
+        console.log(`Game mode -> ${gameMode}`);
+    };
+}
 
 function drawBoard(position) {
     let board = positionToBoard(position);
     display.clearRect(0, 0, canvas.width, canvas.height);
-    rect(0, 0, canvas.width, canvas.height, backgroundColor);
-    rect(0, 0, canvas.width, 120, colors[0]);
-    
+    rect(0, 0, canvas.width, canvas.height, boardColor);
+    rect(0, 0, canvas.width, 120, backgroundColor);
+
     for (let i = 0; i < board.length; i++) {
         for (let j = 0; j < board[i].length; j++) {
             circle(j * 90 + 80, i * 80 + 175, colors[board[i][j]]);
         }
     }
-    
+
     circle(currentColumn * 90 + 80, 70, tokenColor);
-    
+
     if (gameMode == "single") {
         let res = checkWin(position);
         aiGameWon = res;
-        
+
         if ((res && position.length % 2 == 1)) {
             text("Você ganhou!", 10, 30);
         } else if (res && position.length % 2 == 0 || aiGameWon) {
             text("Você perdeu!", 10, 30);
         }
-        
+
         if (botGoing == true && !aiGameWon) {
             text("Bot pensando...", 10, 30);
         } else if (botGoing == false && !aiGameWon) {
             text("Sua vez!", 10, 30);
         }
     }
-    
+
     if (gameMode == "two-player") {
         let res = checkWin(position);
         twoPlayerWon = res;
-        
+
         if ((res && position.length % 2 == 1)) {
             text(`${boardThemesBaseNames[boardThemeIndex][1]} ganhou!`, 10, 30);
+            moveQueueForward();
         }
         if ((res && position.length % 2 == 0)) {
             text(`${boardThemesBaseNames[boardThemeIndex][0]} ganhou!`, 10, 30);
+            moveQueueForward();
         }
         if (position.length % 2 == 1 && !res) {
             text(`Vez de ${boardThemesBaseNames[boardThemeIndex][0]}!`, 10, 30);
@@ -307,57 +398,66 @@ function drawBoard(position) {
     }
 }
 
-document.getElementById("resign").onclick = function() {
+const resignBtn = document.getElementById("resign");
+if (resignBtn) {
+    resignBtn.onclick = function () {
+        if (uiLoaded) {
+            document.getElementById("resign-panel").style.display = "block";
+        } else {
+            console.log("User tried to interact with the UI before they went through the mode selection!");
+        }
+    };
+}
+
+const yesBtn = document.getElementById("yes");
+if (yesBtn) {
+    yesBtn.onclick = function () {
+        if (gameMode == "single" && !aiGameWon) {
+            aiGameWon = true;
+            drawBoard(boardPosition);
+        } else if (gameMode == "two-player" && !twoPlayerWon) {
+            twoPlayerWon = true;
+            drawBoard(boardPosition);
+        }
+        document.getElementById("resign-panel").style.display = "none";
+    };
+}
+
+const noBtn = document.getElementById("no");
+if (noBtn) {
+    noBtn.onclick = function () {
+        document.getElementById("resign-panel").style.display = "none";
+    };
+}
+
+document.onkeyup = function (e) {
     if (uiLoaded) {
-        document.getElementById("resign-panel").style.display = "block";
-    } else {
-        console.log("User tried to interact with the UI before they went through the mode selection!");
-    }
-};
-
-document.getElementById("yes").onclick = function() {
-    if (gameMode == "single" && !aiGameWon) {
-        aiGameWon = true;
-        drawBoard(boardPosition);
-    } else if (gameMode == "two-player" && !twoPlayerWon) {
-        twoPlayerWon = true;
-        drawBoard(boardPosition);
-    }
-    document.getElementById("resign-panel").style.display = "none";
-};
-
-document.getElementById("no").onclick = function() {
-    document.getElementById("resign-panel").style.display = "none";
-};
-
-document.onkeyup = function(e) {
-    if (uiLoaded) {
-        if (e.keyCode == 37) { 
+        if (e.keyCode == 37) {
             currentColumn--;
             if (currentColumn < 0) {
                 currentColumn = 0;
             }
-        } else if (e.keyCode == 39) { 
+        } else if (e.keyCode == 39) {
             currentColumn++;
             if (currentColumn > 6) {
                 currentColumn = 6;
             }
-        } else if (e.keyCode == 32) { 
+        } else if (e.keyCode == 32) {
             if (gameMode == "single" && !aiGameWon && !botGoing) {
                 let currentState = getCount(boardPosition);
                 if (parseInt(currentState[currentColumn]) < 6) {
                     boardPosition += currentColumn;
                     drawBoard(boardPosition);
-                    
+
                     if (checkWin(boardPosition)) {
                         aiGameWon = true;
                         drawBoard(boardPosition);
                         return;
                     }
-                    
+
                     botGoing = true;
                     let randomWaitTime = randomNumber(500, 1500);
-                    
+
                     setTimeout(() => {
                         let botMove = getBestMove(boardPosition);
                         if (botMove !== -1) {
@@ -366,7 +466,7 @@ document.onkeyup = function(e) {
                         botGoing = false;
                         drawBoard(boardPosition);
                     }, randomWaitTime);
-                    
+
                 } else {
                     console.log("Column is full!");
                     return;
@@ -387,20 +487,234 @@ document.onkeyup = function(e) {
     }
 };
 
-document.getElementById("change-mode").onclick = function() {
-    if (uiLoaded) {
-        window.location.reload();
-    }
-};
+const changeModeBtn = document.getElementById("change-mode");
+if (changeModeBtn) {
+    changeModeBtn.onclick = function () {
+        if (uiLoaded) {
+            window.location.reload();
+        }
+    };
+}
 
-document.getElementById("theme-change").onclick = () => {
-    if (uiLoaded) {
-        let boardThemeList = Object.values(boardThemes);
-        boardThemeIndex++;
-        boardThemeIndex = boardThemeIndex % boardThemeList.length;
-        colors = boardThemeList[boardThemeIndex];
-        tokenColor = colors[(boardPosition.length % 2) + 1];
-        console.log("Theme change!", boardThemeList[boardThemeIndex]);
-        drawBoard(boardPosition);
+const profileBtn = document.getElementById("profile-btn");
+if (profileBtn) {
+    profileBtn.onclick = function () {
+        window.location.href = "profile.html";
+    };
+}
+
+const themeChangeBtn = document.getElementById("theme-change");
+if (themeChangeBtn) {
+    themeChangeBtn.onclick = () => {
+        if (uiLoaded) {
+            let boardThemeList = Object.values(boardThemes);
+            boardThemeIndex++;
+            boardThemeIndex = boardThemeIndex % boardThemeList.length;
+            colors = boardThemeList[boardThemeIndex];
+            tokenColor = colors[(boardPosition.length % 2) + 1];
+            console.log("Theme change!", boardThemeList[boardThemeIndex]);
+            drawBoard(boardPosition);
+        }
+    };
+}
+
+const darkBtn = document.getElementById("dark-mode-btn");
+let darkMode = localStorage.getItem("darkMode") === "true";
+
+if (darkBtn) {
+    if (darkMode) {
+        document.body.classList.add("dark");
+        darkBtn.textContent = "Modo Claro";
+        if (canvas) {
+            boardColor = "rgb(120, 180, 255)";
+        }
     }
-};
+
+    darkBtn.onclick = function () {
+        darkMode = !darkMode;
+        document.body.classList.toggle("dark");
+        localStorage.setItem("darkMode", darkMode);
+
+        if (darkMode) {
+            darkBtn.textContent = "Modo Claro";
+            if (canvas) {
+                boardColor = "rgb(120, 180, 255)";
+                drawBoard(boardPosition);
+            }
+        } else {
+            darkBtn.textContent = "Modo Escuro";
+            if (canvas) {
+                boardColor = "rgb(93, 152, 255)";
+                drawBoard(boardPosition);
+            }
+        }
+    };
+}
+
+const gotoGameBtn = document.getElementById("goto-game");
+if (gotoGameBtn) {
+    gotoGameBtn.onclick = () => {
+        window.location.href = "index.html";
+    };
+}
+
+const editBtn = document.getElementById("edit-btn");
+const saveBtn = document.getElementById("save-btn");
+const cancelBtn = document.getElementById("cancel-btn");
+
+if (editBtn && saveBtn && cancelBtn) {
+    const inputs = [
+        document.getElementById("profile-age"),
+        document.getElementById("profile-city"),
+        document.getElementById("profile-state"),
+        document.getElementById("profile-country")
+    ];
+
+    let originalValues = {};
+
+    editBtn.onclick = function () {
+        inputs.forEach(input => {
+            originalValues[input.id] = input.value;
+            input.disabled = false;
+        });
+
+        editBtn.style.display = "none";
+        saveBtn.style.display = "block";
+        cancelBtn.style.display = "block";
+    };
+
+    saveBtn.onclick = function () {
+        inputs.forEach(input => {
+            input.disabled = true;
+        });
+
+        editBtn.style.display = "block";
+        saveBtn.style.display = "none";
+        cancelBtn.style.display = "none";
+
+        alert("Perfil atualizado com sucesso!");
+    };
+
+    cancelBtn.onclick = function () {
+        inputs.forEach(input => {
+            input.value = originalValues[input.id];
+            input.disabled = true;
+        });
+
+        editBtn.style.display = "block";
+        saveBtn.style.display = "none";
+        cancelBtn.style.display = "none";
+    };
+}
+
+const changeAvatarBtn = document.getElementById("change-avatar-btn");
+const avatarSelector = document.getElementById("avatar-selector");
+const closeAvatarSelector = document.getElementById("close-avatar-selector");
+const avatarOptions = document.querySelectorAll(".avatar-option");
+const avatarImg = document.getElementById("avatar-img");
+
+let selectedAvatar = localStorage.getItem("selectedAvatar") || "1";
+
+if (avatarImg) {
+    avatarImg.src = `Profile Pictures/${selectedAvatar}.jpg`;
+}
+
+if (changeAvatarBtn && avatarSelector) {
+    changeAvatarBtn.onclick = function () {
+        avatarSelector.style.display = "block";
+        avatarOptions.forEach(option => {
+            if (option.dataset.avatar === selectedAvatar) {
+                option.classList.add("selected");
+            }
+        });
+    };
+}
+
+if (closeAvatarSelector) {
+    closeAvatarSelector.onclick = function () {
+        avatarSelector.style.display = "none";
+    };
+}
+
+avatarOptions.forEach(option => {
+    option.onclick = function () {
+        avatarOptions.forEach(opt => opt.classList.remove("selected"));
+        option.classList.add("selected");
+        selectedAvatar = option.dataset.avatar;
+
+        avatarImg.src = `Profile Pictures/${selectedAvatar}.jpg`;
+
+        localStorage.setItem("selectedAvatar", selectedAvatar);
+
+        setTimeout(() => {
+            avatarSelector.style.display = "none";
+        }, 300);
+    };
+});
+
+function addPointsToPlayer(playerName, points) {
+    let leaderboardData = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+
+    let player = leaderboardData.find(p => p.name === playerName);
+    if (player) {
+        player.points += points;
+        player.wins += 1;
+    } else {
+        leaderboardData.push({
+            name: playerName,
+            points: points,
+            wins: 1,
+            avatar: localStorage.getItem("selectedAvatar") || "1"
+        });
+    }
+
+    leaderboardData.sort((a, b) => b.points - a.points);
+    localStorage.setItem("leaderboard", JSON.stringify(leaderboardData));
+    updateLeaderboard();
+}
+
+function updateLeaderboard() {
+    const leaderboardList = document.getElementById("leaderboard-list");
+    if (!leaderboardList) return;
+
+    let leaderboardData = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+
+    if (leaderboardData.length === 0) {
+        leaderboardData = [
+            { name: "JoãoSilva", points: 150, wins: 15, avatar: "1" },
+            { name: "MariaSantos", points: 120, wins: 12, avatar: "2" },
+            { name: "PedroLima", points: 100, wins: 10, avatar: "3" },
+            { name: "AnaCarla", points: 80, wins: 8, avatar: "4" },
+            { name: "CarlosReis", points: 60, wins: 6, avatar: "5" }
+        ];
+        localStorage.setItem("leaderboard", JSON.stringify(leaderboardData));
+    }
+
+    const rankClasses = ["gold", "silver", "bronze"];
+
+    leaderboardList.innerHTML = leaderboardData.slice(0, 10).map((player, index) => {
+        const rankClass = index < 3 ? rankClasses[index] : "";
+        return `
+            <li class="leaderboard-item">
+                <span class="leaderboard-rank ${rankClass}">${index + 1}</span>
+                <div class="leaderboard-avatar">
+                    <img src="Profile Pictures/${player.avatar}.jpg" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                </div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">${player.name}</div>
+                    <div class="leaderboard-score">${player.wins} vitórias</div>
+                </div>
+                <div class="leaderboard-points">${player.points}</div>
+            </li>
+        `;
+    }).join("");
+}
+
+// Initialize
+if (document.getElementById("leaderboard-list")) {
+    updateLeaderboard();
+}
+
+if (document.getElementById("queue-list")) {
+    initializeQueue();
+}

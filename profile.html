@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil - Connect 4</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <button class="panel-btn unsadden" id="dark-mode-btn">Modo Escuro</button>
+
+    <div class="profile-container">
+        <div class="profile-header">
+            <div class="profile-avatar" id="profile-avatar">
+                <img id="avatar-img" src="" alt="Avatar"
+                    style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+            </div>
+            <div class="profile-info">
+                <h1 id="display-username">JoãoSilva</h1>
+                <p>Membro desde 2024</p>
+                <p>🎮 Jogador de Connect 4</p>
+                <button class="profile-btn profile-btn-primary" id="change-avatar-btn" style="margin-top: 10px;">Mudar
+                    Foto</button>
+            </div>
+        </div>
+
+        <div id="avatar-selector" class="avatar-selector" style="display: none;">
+            <h3>Escolha seu avatar</h3>
+            <div class="avatar-options">
+                <div class="avatar-option" data-avatar="1">
+                    <img src="Profile Pictures/1.jpg" alt="Avatar 1">
+                </div>
+                <div class="avatar-option" data-avatar="2">
+                    <img src="Profile Pictures/2.jpg" alt="Avatar 2">
+                </div>
+                <div class="avatar-option" data-avatar="3">
+                    <img src="Profile Pictures/3.jpg" alt="Avatar 3">
+                </div>
+                <div class="avatar-option" data-avatar="4">
+                    <img src="Profile Pictures/4.jpg" alt="Avatar 4">
+                </div>
+                <div class="avatar-option" data-avatar="5">
+                    <img src="Profile Pictures/5.jpg" alt="Avatar 5">
+                </div>
+                <div class="avatar-option" data-avatar="6">
+                    <img src="Profile Pictures/6.jpg" alt="Avatar 6">
+                </div>
+                <div class="avatar-option" data-avatar="7">
+                    <img src="Profile Pictures/7.jpg" alt="Avatar 7">
+                </div>
+            </div>
+            <button class="profile-btn profile-btn-secondary" id="close-avatar-selector">Fechar</button>
+        </div>
+
+        <div class="profile-section">
+            <h2>Informações Pessoais</h2>
+            <div class="profile-details">
+                <div class="detail-item">
+                    <span class="detail-label">Usuário</span>
+                    <div class="detail-value">
+                        <input type="text" id="profile-user" value="JoãoSilva" disabled>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Idade</span>
+                    <div class="detail-value">
+                        <input type="number" id="profile-age" value="25" disabled>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Cidade</span>
+                    <div class="detail-value">
+                        <input type="text" id="profile-city" value="Videira" disabled>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Estado</span>
+                    <div class="detail-value">
+                        <input type="text" id="profile-state" value="Santa Catarina" disabled>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">País</span>
+                    <div class="detail-value">
+                        <input type="text" id="profile-country" value="Brasil" disabled>
+                    </div>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <button class="profile-btn profile-btn-primary" id="edit-btn">Editar Perfil</button>
+                <button class="profile-btn profile-btn-success" id="save-btn" style="display: none;">Salvar
+                    Alterações</button>
+                <button class="profile-btn profile-btn-danger" id="cancel-btn" style="display: none;">Cancelar</button>
+                <button class="profile-btn profile-btn-secondary" id="goto-game">Voltar ao jogo</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
