@@ -31,6 +31,8 @@ const state = {
   inQueue: false
 };
 
+let currentGameMode = 'two-player'; // 'single' ou 'two-player'
+
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
 });
@@ -46,7 +48,7 @@ async function initApp() {
     setupBoardInteraction();
     await Promise.all([loadLeaderboard(), loadQueueSnapshot()]);
     setupSocket();
-    updateStatus('Entre na fila para jogar ou acompanhe as partidas em tempo real.');
+    updateStatus('Escolha um modo de jogo: Bot (prática) ou Multiplayer (competitivo).');
   } catch (error) {
     console.error(error);
     window.location.href = 'login.html';
@@ -108,7 +110,19 @@ function setupStaticButtons() {
 
   const startBtn = document.getElementById('start-game');
   startBtn?.addEventListener('click', () => {
-    joinQueue();
+    // Pega o modo selecionado
+    const modeRadio = document.querySelector('input[name="game-mode"]:checked');
+    if (modeRadio) {
+      currentGameMode = modeRadio.value;
+    }
+
+    if (currentGameMode === 'single') {
+      // Inicia jogo contra bot
+      startBotGame();
+    } else {
+      // Entra na fila multiplayer
+      joinQueue();
+    }
   });
 
   const joinBtn = document.getElementById('join-queue-btn');
@@ -173,7 +187,6 @@ async function loadLeaderboard() {
 }
 
 async function loadQueueSnapshot() {
-  
   try {
     const response = await fetch(`${QUEUE_BASE}/state`, { credentials: 'include' });
     const data = await response.json();
@@ -216,32 +229,58 @@ function setupSocket() {
       role: payload.youAre,
       board: payload.board,
       currentTurn: payload.currentTurn,
-      opponent: payload.opponent
+      opponent: payload.opponent,
+      vsBot: payload.vsBot || false
     };
     state.board = payload.board;
     state.inQueue = false;
     drawBoard();
+    
     const isMyTurn = state.match.currentTurn === state.user.id;
-    updateStatus(isMyTurn ? 'Você começa! Faça sua jogada.' : 'Partida iniciada. Aguarde a sua vez.');
+    const gameType = state.match.vsBot ? 'contra o Bot' : 'multiplayer';
+    const turnMsg = isMyTurn ? 'Você começa! Faça sua jogada.' : 'Aguarde a sua vez.';
+    
+    updateStatus(`Partida ${gameType} iniciada. ${turnMsg}`);
     updatePlayerBadges();
     updateQueueButtons();
   });
 
   state.socket.on('game_update', (payload) => {
     if (!state.match || state.match.gameId !== payload.gameId) return;
+    
     state.board = payload.board;
     state.match.currentTurn = payload.currentTurn;
     drawBoard();
-    updateStatus(state.match.currentTurn === state.user.id ? 'Sua vez de jogar!' : 'Aguardando o adversário...');
+    
+    if (state.match.vsBot) {
+      // Jogo contra bot
+      if (payload.currentTurn === state.user.id) {
+        updateStatus('Sua vez de jogar!');
+      } else if (payload.currentTurn === 'bot') {
+        updateStatus('Bot está pensando...');
+      }
+    } else {
+      // Jogo multiplayer
+      const isMyTurn = state.match.currentTurn === state.user.id;
+      updateStatus(isMyTurn ? 'Sua vez de jogar!' : 'Aguardando o adversário...');
+    }
   });
 
   state.socket.on('game_over', (payload) => {
     if (state.match && state.match.gameId === payload.gameId) {
       const youWon = payload.winnerId === state.user.id;
+      const vsBot = payload.vsBot || state.match.vsBot;
+      
       if (payload.draw) {
-        updateStatus('Partida empatada! Entre na fila novamente.');
+        updateStatus('Partida empatada! ' + (vsBot ? 'Jogue novamente.' : 'Entre na fila novamente.'));
+      } else if (payload.winnerId === 'bot') {
+        updateStatus('O Bot venceu! Tente novamente.');
       } else if (payload.winnerId) {
-        updateStatus(youWon ? 'Você venceu! 🎉' : 'Você perdeu. Continue tentando!');
+        if (vsBot) {
+          updateStatus(youWon ? 'Você venceu o Bot! 🎉 (Sem pontos no modo prática)' : 'Você perdeu. Continue tentando!');
+        } else {
+          updateStatus(youWon ? 'Você venceu! 🎉 (+10 pontos)' : 'Você perdeu. Continue tentando!');
+        }
       } else {
         updateStatus('Partida encerrada.');
       }
@@ -251,15 +290,42 @@ function setupSocket() {
     updateQueueButtons();
   });
 
+  state.socket.on('game_status', (payload) => {
+    if (payload.message) {
+      updateStatus(payload.message);
+    }
+  });
+
   state.socket.on('move_rejected', (payload) => {
     if (payload?.reason) {
       updateStatus(payload.reason);
     }
   });
+
+  state.socket.on('error', (payload) => {
+    if (payload?.message) {
+      updateStatus(`Erro: ${payload.message}`);
+    }
+  });
+}
+
+function startBotGame() {
+  if (state.match || state.inQueue) {
+    updateStatus('Você já está em uma partida ou na fila!');
+    return;
+  }
+
+  state.socket.emit('start_bot_game');
+  updateStatus('Iniciando jogo contra o Bot...');
 }
 
 async function joinQueue() {
   if (state.inQueue) return;
+  if (state.match) {
+    updateStatus('Você já está em uma partida!');
+    return;
+  }
+  
   try {
     const response = await fetch(`${QUEUE_BASE}/join`, {
       method: 'POST',
@@ -274,7 +340,7 @@ async function joinQueue() {
       return;
     }
     state.inQueue = true;
-    updateStatus('Você entrou na fila. Aguarde a sua vez.');
+    updateStatus('Você entrou na fila. Aguarde a sua vez para jogar multiplayer.');
     updateQueueButtons();
   } catch (error) {
     console.error(error);
@@ -395,9 +461,10 @@ function updatePlayerBadges() {
   if (!container) return;
 
   if (state.match) {
+    const opponentLabel = state.match.vsBot ? 'Bot' : 'Adversário';
     container.innerHTML = `
       ${playerPill(state.user.username, state.user.avatar || '1', true, 'Você')}
-      ${playerPill(state.match.opponent.username, state.match.opponent.avatar || '1', false, 'Adversário')}
+      ${playerPill(state.match.opponent.username, state.match.opponent.avatar || '1', false, opponentLabel)}
     `;
     return;
   }
@@ -406,7 +473,7 @@ function updatePlayerBadges() {
   const player2 = state.currentPlayers?.player2;
 
   if (!player1 && !player2) {
-    container.innerHTML = '<p>Nenhuma partida em andamento. Entre na fila!</p>';
+    container.innerHTML = '<p>Nenhuma partida em andamento. Jogue contra o bot ou entre na fila!</p>';
     return;
   }
 
@@ -477,13 +544,23 @@ function setupBoardInteraction() {
 
   canvas.addEventListener('click', (event) => {
     if (!state.match || !state.socket) {
-      updateStatus('Entre na fila para jogar online.');
+      updateStatus('Selecione um modo de jogo: Bot (prática) ou Multiplayer (fila).');
       return;
     }
 
-    if (state.match.currentTurn !== state.user.id) {
-      updateStatus('Aguarde o adversário.');
-      return;
+    // Verifica se é a vez do jogador
+    if (state.match.vsBot) {
+      // Jogo contra bot - verifica se é a vez do jogador
+      if (state.match.currentTurn !== state.user.id) {
+        updateStatus('Aguarde o bot jogar.');
+        return;
+      }
+    } else {
+      // Jogo multiplayer
+      if (state.match.currentTurn !== state.user.id) {
+        updateStatus('Aguarde o adversário.');
+        return;
+      }
     }
 
     const rect = canvas.getBoundingClientRect();
@@ -496,4 +573,3 @@ function setupBoardInteraction() {
     });
   });
 }
-

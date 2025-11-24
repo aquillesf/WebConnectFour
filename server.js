@@ -23,6 +23,7 @@ const Game = require('./models/Game');
 const authRoutes = require('./routes/auth');
 const gameRoutes = require('./routes/game');
 const adminRoutes = require('./routes/admin');
+const Connect4Bot = require('./utils/botAI');
 
 const app = express();
 const server = http.createServer(app);
@@ -55,6 +56,7 @@ const sessionMiddleware = session({
 const publicDir = path.join(__dirname, 'public');
 const userSockets = new Map();
 const activeGames = new Map();
+const botGames = new Map();
 const onlineUsers = new Map();
 const adminSockets = new Set();
 const ADMIN_INACTIVITY_MS = parseInt(process.env.ADMIN_INACTIVITY_MS, 10) || 5 * 60 * 1000;
@@ -451,13 +453,20 @@ const finalizeMatch = async (match, result) => {
   if (!match || match.status === 'finished') return;
 
   match.status = 'finished';
-  activeGames.delete(match.id);
+  const isBot = match.gameMode === 'single';
+  
+  if (isBot) {
+    botGames.delete(match.id);
+  } else {
+    activeGames.delete(match.id);
+  }
 
   io.to(match.id).emit('game_over', {
     gameId: match.id,
     winnerId: result.winnerId || null,
     draw: Boolean(result.draw),
-    reason: result.reason || 'finished'
+    reason: result.reason || 'finished',
+    vsBot: isBot
   });
   io.in(match.id).socketsLeave(match.id);
 
@@ -470,7 +479,8 @@ const finalizeMatch = async (match, result) => {
       finishedAt: new Date()
     });
 
-    if (result.winnerId) {
+    // IMPORTANTE: Só atualiza pontos se NÃO for contra o bot
+    if (result.winnerId && !isBot) {
       const loserId = result.winnerId === match.player1.userId
         ? match.player2.userId
         : match.player1.userId;
@@ -487,16 +497,66 @@ const finalizeMatch = async (match, result) => {
             })
           : Promise.resolve()
       ]);
-    }
 
-    await broadcastLeaderboard();
+      await broadcastLeaderboard();
+    }
   } catch (error) {
     console.error('Erro ao finalizar partida:', error);
   } finally {
-    queueManager.finishGame(result.winnerId || null);
-    emitAdminStatsSafe();
+    if (!isBot) {
+      queueManager.finishGame(result.winnerId || null);
+      emitAdminStatsSafe();
+    }
   }
 };
+
+const startBotMatch = async (socket, userId, username, avatar) => {
+  try {
+    const game = await Game.create({
+      player1: userId,
+      player2: null, // Bot não tem ID
+      gameMode: 'single',
+      status: 'playing',
+      startedAt: new Date()
+    });
+
+    const match = {
+      id: game._id.toString(),
+      player1: { userId, username, avatar },
+      player2: { userId: 'bot', username: 'Bot', avatar: '1' },
+      board: createBoard(),
+      currentTurn: userId, // Jogador sempre começa
+      status: 'playing',
+      startedAt: game.startedAt,
+      gameMode: 'single',
+      bot: new Connect4Bot('hard') // Cria instância do bot
+    };
+
+    botGames.set(match.id, match);
+    socket.join(match.id);
+
+    socket.emit('match_start', {
+      gameId: match.id,
+      youAre: 'player1',
+      currentTurn: match.currentTurn,
+      opponent: {
+        username: 'Bot',
+        avatar: '1'
+      },
+      board: match.board,
+      vsBot: true
+    });
+
+    socket.emit('game_status', {
+      message: 'Sua vez de jogar! Jogo contra o Bot iniciado.'
+    });
+
+  } catch (error) {
+    console.error('Erro ao iniciar partida com bot:', error);
+    socket.emit('error', { message: 'Erro ao iniciar jogo com bot.' });
+  }
+};
+
 
 const startMatch = async ({ player1, player2 }) => {
   const p1Socket = userSockets.get(player1.userId);
@@ -569,12 +629,20 @@ queueManager.setInactiveCallback((userId) => {
   queueManager.removeFromQueue(userId);
 });
 
-const handlePlayerMove = (socket, userId, payload) => {
+const handlePlayerMove = async (socket, userId, payload) => {
   const { gameId, column } = payload || {};
-  const match = activeGames.get(gameId);
+  
+  // Verifica se é jogo contra bot ou multiplayer
+  let match = activeGames.get(gameId) || botGames.get(gameId);
+  const isBot = match?.gameMode === 'single';
 
   if (!match || match.status !== 'playing') return;
-  if (![match.player1.userId, match.player2.userId].includes(userId)) return;
+  
+  // Para jogo multiplayer, verifica se o jogador está na partida
+  if (!isBot && ![match.player1.userId, match.player2.userId].includes(userId)) return;
+  
+  // Para jogo bot, verifica se é o jogador
+  if (isBot && match.player1.userId !== userId) return;
 
   if (match.currentTurn !== userId) {
     socket.emit('move_rejected', { reason: 'Aguarde sua vez.' });
@@ -586,7 +654,7 @@ const handlePlayerMove = (socket, userId, payload) => {
     return;
   }
 
-  const token = userId === match.player1.userId ? 1 : 2;
+  const token = isBot ? 1 : (userId === match.player1.userId ? 1 : 2);
   const row = dropPiece(match.board, column, token);
 
   if (row === -1) {
@@ -594,48 +662,110 @@ const handlePlayerMove = (socket, userId, payload) => {
     return;
   }
 
-  queueManager.renewActivity(userId);
+  if (!isBot) {
+    queueManager.renewActivity(userId);
+  }
 
-  match.currentTurn = userId === match.player1.userId ? match.player2.userId : match.player1.userId;
-
+  // Emite atualização da jogada do jogador
   io.to(match.id).emit('game_update', {
     gameId: match.id,
     board: match.board,
-    currentTurn: match.currentTurn,
+    currentTurn: isBot ? 'bot' : match.player2.userId,
     lastMove: { row, column, playerId: userId }
   });
 
+  // Verifica vitória do jogador
   if (hasConnectFour(match.board, row, column, token)) {
     finalizeMatch(match, { winnerId: userId, reason: 'victory' });
     return;
   }
 
+  // Verifica empate
   if (isBoardFull(match.board)) {
     finalizeMatch(match, { draw: true, reason: 'draw' });
+    return;
+  }
+
+  // Se for jogo contra bot, faz a jogada do bot
+  if (isBot) {
+    socket.emit('game_status', { message: 'Bot está pensando...' });
+    
+    // Delay para simular pensamento do bot (mais realista)
+    setTimeout(() => {
+      makeBotMove(match, socket);
+    }, 800);
+  } else {
+    // Jogo multiplayer - alterna turno
+    match.currentTurn = userId === match.player1.userId ? match.player2.userId : match.player1.userId;
   }
 };
 
-const handleResign = (userId, { gameId }) => {
-  const match = activeGames.get(gameId);
+const makeBotMove = (match, socket) => {
   if (!match || match.status !== 'playing') return;
 
-  const winnerId = userId === match.player1.userId ? match.player2.userId : match.player1.userId;
-  finalizeMatch(match, { winnerId, reason: 'resign' });
+  const botMove = match.bot.makeMove(match.board);
+  
+  if (botMove === null) {
+    finalizeMatch(match, { draw: true, reason: 'draw' });
+    return;
+  }
+
+  const row = dropPiece(match.board, botMove, 2); // Bot é token 2
+  
+  if (row === -1) return;
+
+  // Emite jogada do bot
+  io.to(match.id).emit('game_update', {
+    gameId: match.id,
+    board: match.board,
+    currentTurn: match.player1.userId,
+    lastMove: { row, column: botMove, playerId: 'bot' }
+  });
+
+  socket.emit('game_status', { message: 'Sua vez de jogar!' });
+
+  // Verifica vitória do bot
+  if (hasConnectFour(match.board, row, botMove, 2)) {
+    finalizeMatch(match, { winnerId: 'bot', reason: 'victory' });
+    return;
+  }
+
+  // Verifica empate
+  if (isBoardFull(match.board)) {
+    finalizeMatch(match, { draw: true, reason: 'draw' });
+    return;
+  }
+
+  // Turno volta para o jogador
+  match.currentTurn = match.player1.userId;
 };
 
 const handleDisconnect = (userId) => {
   userSockets.delete(userId);
   queueManager.removeFromQueue(userId);
 
+  // Verifica jogo multiplayer
   const match = getMatchByUser(userId);
   if (match && match.status === 'playing') {
     const winnerId = userId === match.player1.userId ? match.player2.userId : match.player1.userId;
     finalizeMatch(match, { winnerId, reason: 'disconnect' });
   }
+
+  // Verifica jogo bot
+  for (const [gameId, botMatch] of botGames.entries()) {
+    if (botMatch.player1.userId === userId && botMatch.status === 'playing') {
+      finalizeMatch(botMatch, { winnerId: 'bot', reason: 'disconnect' });
+      break;
+    }
+  }
 };
 
 io.on('connection', async (socket) => {
   const sessionData = socket.request.session;
+  socket.on('start_bot_game', () => {
+    touchOnlineUser(userId);
+    startBotMatch(socket, userId, sessionData.username, sessionData.avatar || '1');
+  });
 
   if (!sessionData || !sessionData.userId) {
     socket.emit('auth_required');

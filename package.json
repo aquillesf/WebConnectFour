@@ -1,0 +1,36 @@
+{
+  "name": "connect4-backend",
+  "version": "1.0.0",
+  "description": "Backend para jogo Connect 4 multiplayer",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "kill-port": "npx kill-port 3000",
+    "restart": "npm run kill-port && npm run dev"
+  },
+  "keywords": ["connect4", "game", "websocket", "multiplayer"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "connect-mongo": "^5.1.0",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "csurf": "^1.11.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.1.5",
+    "express-session": "^1.17.3",
+    "helmet": "^7.1.0",
+    "hpp": "^0.2.3",
+    "mongoose": "^8.0.3",
+    "socket.io": "^4.6.0",
+    "xss-clean": "^0.1.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "kill-port": "^2.0.1"
+  }
+}
