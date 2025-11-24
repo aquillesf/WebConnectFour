@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
@@ -14,9 +14,14 @@
 
     <div class="admin-container">
         <div class="admin-header">
-            <h1>Painel de Administração</h1>
-            <p>Gerenciamento do sistema Connect 4</p>
-            <button class="admin-btn admin-btn-secondary" id="back-to-game">Voltar ao jogo</button>
+            <div>
+                <h1>Painel de Administração</h1>
+                <p>Gerenciamento do sistema Connect 4</p>
+            </div>
+            <div class="admin-header-actions">
+                <button class="admin-btn admin-btn-secondary" id="back-to-game">Voltar ao jogo</button>
+                <button class="admin-btn admin-btn-danger" id="logout-btn">Sair</button>
+            </div>
         </div>
 
         <!-- Statistics Section -->
@@ -131,263 +136,8 @@
         </div>
     </div>
 
-    <script>
-        // Simulate online users with activity tracking
-        let onlineUsers = [
-            { name: "JoãoSilva", avatar: "1", status: "active", lastActivity: Date.now() },
-            { name: "MariaSantos", avatar: "2", status: "inactive", lastActivity: Date.now() - 300000 }, // 5 min ago
-            { name: "PedroLima", avatar: "3", status: "active", lastActivity: Date.now() },
-            { name: "AnaCarla", avatar: "4", status: "inactive", lastActivity: Date.now() - 600000 }, // 10 min ago
-            { name: "CarlosReis", avatar: "5", status: "active", lastActivity: Date.now() }
-        ];
-
-        let activityLog = [];
-
-        function addLogEntry(message, type = "info") {
-            const timestamp = new Date().toLocaleString('pt-BR');
-            activityLog.unshift({ message, type, timestamp });
-            if (activityLog.length > 20) activityLog.pop();
-            updateActivityLog();
-        }
-
-        function updateActivityLog() {
-            const logContainer = document.getElementById("activity-log");
-            if (!logContainer) return;
-
-            if (activityLog.length === 0) {
-                logContainer.innerHTML = '<p class="no-activity">Nenhuma atividade registrada ainda.</p>';
-                return;
-            }
-
-            logContainer.innerHTML = activityLog.map(entry => `
-                <div class="log-entry log-${entry.type}">
-                    <span class="log-time">${entry.timestamp}</span>
-                    <span class="log-message">${entry.message}</span>
-                </div>
-            `).join("");
-        }
-
-        function updateStatistics() {
-            const totalUsers = onlineUsers.length;
-            const inactiveUsers = onlineUsers.filter(u => u.status === "inactive").length;
-            const queueSize = JSON.parse(localStorage.getItem("playerQueue") || "[]").length;
-            const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
-            const totalAccounts = leaderboard.length;
-
-            document.getElementById("total-users").textContent = totalUsers;
-            document.getElementById("inactive-users").textContent = inactiveUsers;
-            document.getElementById("queue-size").textContent = queueSize;
-            document.getElementById("total-accounts").textContent = totalAccounts;
-        }
-
-        function getInactiveTime(lastActivity) {
-            const diff = Date.now() - lastActivity;
-            const minutes = Math.floor(diff / 60000);
-            const seconds = Math.floor((diff % 60000) / 1000);
-
-            if (minutes > 0) {
-                return `${minutes}m ${seconds}s`;
-            }
-            return `${seconds}s`;
-        }
-
-        function formatTime(timestamp) {
-            return new Date(timestamp).toLocaleTimeString('pt-BR');
-        }
-
-        function updateOnlineUsersTable() {
-            const tbody = document.getElementById("online-users-table");
-            if (!tbody) return;
-
-            tbody.innerHTML = onlineUsers.map(user => {
-                const statusClass = user.status === "active" ? "status-active" : "status-inactive";
-                const statusText = user.status === "active" ? "Ativo" : "Inativo";
-                const inactiveTime = user.status === "inactive" ? getInactiveTime(user.lastActivity) : "-";
-
-                return `
-                    <tr>
-                        <td>
-                            <div class="user-avatar-small">
-                                <img src="Profile Pictures/${user.avatar}.jpg" alt="Avatar">
-                            </div>
-                        </td>
-                        <td>${user.name}</td>
-                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                        <td>${inactiveTime}</td>
-                        <td>${formatTime(user.lastActivity)}</td>
-                    </tr>
-                `;
-            }).join("");
-        }
-
-        function updateQueueTable() {
-            const tbody = document.getElementById("queue-table");
-            if (!tbody) return;
-
-            const queue = JSON.parse(localStorage.getItem("playerQueue") || "[]");
-
-            if (queue.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="no-data">Nenhum jogador na fila</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = queue.map((player, index) => {
-                const statusText = player.status === "playing" ? "🎮 Jogando" : "⏳ Aguardando";
-                const statusClass = player.status === "playing" ? "status-playing" : "status-waiting";
-
-                return `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>
-                            <div class="user-avatar-small">
-                                <img src="Profile Pictures/${player.avatar}.jpg" alt="Avatar">
-                            </div>
-                        </td>
-                        <td>${player.name}</td>
-                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
-                        <td>
-                            <button class="admin-btn-small admin-btn-danger" onclick="removeFromQueue('${player.name}')">
-                                Remover
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join("");
-        }
-
-        function removeFromQueue(username) {
-            let queue = JSON.parse(localStorage.getItem("playerQueue") || "[]");
-            queue = queue.filter(p => p.name !== username);
-            localStorage.setItem("playerQueue", JSON.stringify(queue));
-            updateQueueTable();
-            updateStatistics();
-            addLogEntry(`Usuário ${username} removido da fila pelo administrador`, "warning");
-        }
-
-        const clearQueueBtn = document.getElementById("clear-queue-btn");
-        if (clearQueueBtn) {
-            clearQueueBtn.onclick = function () {
-                if (confirm("Tem certeza que deseja limpar toda a fila?")) {
-                    localStorage.setItem("playerQueue", "[]");
-                    updateQueueTable();
-                    updateStatistics();
-                    addLogEntry("Fila de jogadores foi limpa pelo administrador", "warning");
-                }
-            };
-        }
-
-        const deleteUserBtn = document.getElementById("delete-user-btn");
-        if (deleteUserBtn) {
-            deleteUserBtn.onclick = function () {
-                const username = document.getElementById("delete-username").value.trim();
-                const reason = document.getElementById("delete-reason").value.trim();
-                const confirmed = document.getElementById("confirm-delete").checked;
-
-                if (!username) {
-                    alert("Por favor, insira o nome do usuário.");
-                    return;
-                }
-
-                if (!confirmed) {
-                    alert("Por favor, confirme a exclusão marcando a caixa de seleção.");
-                    return;
-                }
-
-                if (confirm(`Tem certeza absoluta que deseja deletar a conta de ${username}? Esta ação NÃO pode ser desfeita!`)) {
-                    // Remove from leaderboard
-                    let leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
-                    const userExists = leaderboard.some(p => p.name === username);
-
-                    if (!userExists) {
-                        alert(`Usuário ${username} não encontrado no sistema.`);
-                        return;
-                    }
-
-                    leaderboard = leaderboard.filter(p => p.name !== username);
-                    localStorage.setItem("leaderboard", JSON.stringify(leaderboard));
-
-                    // Remove from queue
-                    let queue = JSON.parse(localStorage.getItem("playerQueue") || "[]");
-                    queue = queue.filter(p => p.name !== username);
-                    localStorage.setItem("playerQueue", JSON.stringify(queue));
-
-                    // Remove from online users
-                    onlineUsers = onlineUsers.filter(u => u.name !== username);
-
-                    // Clear form
-                    document.getElementById("delete-username").value = "";
-                    document.getElementById("delete-reason").value = "";
-                    document.getElementById("confirm-delete").checked = false;
-
-                    // Update displays
-                    updateOnlineUsersTable();
-                    updateQueueTable();
-                    updateStatistics();
-
-                    const logMessage = reason
-                        ? `Conta de ${username} deletada. Motivo: ${reason}`
-                        : `Conta de ${username} deletada pelo administrador`;
-                    addLogEntry(logMessage, "danger");
-
-                    alert(`Conta de ${username} deletada com sucesso.`);
-                }
-            };
-        }
-
-        const backToGameBtn = document.getElementById("back-to-game");
-        if (backToGameBtn) {
-            backToGameBtn.onclick = () => {
-                window.location.href = "index.html";
-            };
-        }
-
-        const darkBtn = document.getElementById("dark-mode-btn");
-        let darkMode = localStorage.getItem("darkMode") === "true";
-
-        if (darkBtn) {
-            if (darkMode) {
-                document.body.classList.add("dark");
-                darkBtn.textContent = "Modo Claro";
-            }
-
-            darkBtn.onclick = function () {
-                darkMode = !darkMode;
-                document.body.classList.toggle("dark");
-                localStorage.setItem("darkMode", darkMode);
-
-                if (darkMode) {
-                    darkBtn.textContent = "Modo Claro";
-                } else {
-                    darkBtn.textContent = "Modo Escuro";
-                }
-            };
-        }
-
-        // Simulate user activity changes
-        setInterval(() => {
-            onlineUsers.forEach(user => {
-                if (Math.random() > 0.7) {
-                    user.status = user.status === "active" ? "inactive" : "active";
-                    if (user.status === "active") {
-                        user.lastActivity = Date.now();
-                    }
-                }
-            });
-            updateOnlineUsersTable();
-            updateStatistics();
-        }, 10000);
-
-        // Update inactive time every second
-        setInterval(() => {
-            updateOnlineUsersTable();
-        }, 1000);
-
-        // Initialize
-        updateStatistics();
-        updateOnlineUsersTable();
-        updateQueueTable();
-        addLogEntry("Painel de administração carregado", "info");
-    </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="admin.js" defer></script>
 </body>
 
 </html>

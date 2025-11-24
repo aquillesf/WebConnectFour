@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
@@ -11,57 +11,104 @@
 </head>
 
 <body>
-    <button class="unsadden" id="dark-mode-btn">Modo Escuro</button>
-
     <div id="centered">
-        <div class="game-layout">
-            <div class="game-main">
-                <h2 id="title">Connect 4</h2>
-                <canvas id="game" width="700" height="630"></canvas>
-                <div>
-                    <button class="panel-btn" id="resign">Desistir</button>
-                    <button class="panel-btn" id="theme-change">Mudar o tema</button>
-                    <button class="panel-btn" id="change-mode">Mudar o modo</button>
-                    <button class="panel-btn" id="profile-btn">Perfil</button>
+        <div class="app-wrapper">
+            <header class="app-header">
+                <div class="brand">
+                    <p class="eyebrow">Bem-vindo ao torneio online</p>
+                    <h1>Connect 4</h1>
+                    <p class="subtitle">Desafie o bot ou entre na fila para jogar contra outras pessoas.</p>
                 </div>
-                <div id="resign-panel" style="display: none;">
-                    <p>Você tem certeza que quer desistir?</p>
-                    <button class="panel-btn" id="yes"
-                        style="background-color: rgb(61, 224, 96); width: 70px; margin-top: 0;">Sim</button>
-                    <button class="panel-btn" id="no"
-                        style="background-color: rgb(224, 61, 61); width: 70px; margin-top: 0;">Não</button>
+                <div class="header-actions">
+                    <button class="panel-btn ghost" id="profile-btn">Perfil</button>
+                    <button class="panel-btn ghost" id="logout-btn">Sair</button>
+                    <button class="panel-btn unsadden" id="dark-mode-btn">Modo Escuro</button>
                 </div>
-            </div>
+            </header>
 
-            <div class="sidebar">
-                <aside class="player-queue">
-                    <h3>👥 Fila de Jogadores</h3>
-                    <ul class="queue-list" id="queue-list">
-                    </ul>
-                    <button class="join-queue-btn" id="join-queue-btn">Entrar na Fila</button>
+            <main class="app-content">
+                <section class="game-shell">
+                    <div class="match-info">
+                        <div class="match-players" id="match-players">
+                            <p>Entre na fila para encontrar um adversário.</p>
+                        </div>
+                        <p class="match-status" id="match-status">Aguardando ação do jogador.</p>
+                    </div>
+
+                    <div class="canvas-wrapper">
+                        <canvas id="game" width="700" height="630" aria-label="Tabuleiro do Connect 4"></canvas>
+                    </div>
+
+                    <div class="control-strip">
+                        <button class="panel-btn" id="resign">Desistir</button>
+                        <button class="panel-btn" id="theme-change">Mudar tema</button>
+                        <button class="panel-btn" id="change-mode">Trocar modo</button>
+                    </div>
+
+                    <div class="resign-panel" id="resign-panel" hidden>
+                        <p>Você tem certeza que quer desistir?</p>
+                        <div class="resign-actions">
+                            <button class="panel-btn success" id="yes">Sim</button>
+                            <button class="panel-btn danger" id="no">Não</button>
+                        </div>
+                    </div>
+                </section>
+
+                <aside class="sidebar">
+                    <section class="player-queue card">
+                        <div class="card-header">
+                            <h3>👥 Fila de Jogadores</h3>
+                            <span class="queue-size" id="queue-size">0</span>
+                        </div>
+                        <ul class="queue-list" id="queue-list"></ul>
+                        <button class="panel-btn cta" id="join-queue-btn">Entrar na Fila</button>
+                        <button class="panel-btn ghost" id="leave-queue-btn" style="display: none;">Sair da Fila</button>
+                        <p class="queue-hint">A fila sincroniza com o painel do administrador.</p>
+                    </section>
+
+                    <section class="leaderboard card">
+                        <div class="card-header">
+                            <h3>🏆 Placar</h3>
+                            <button class="panel-btn ghost small" id="refresh-leaderboard" aria-label="Atualizar placar">
+                                Atualizar
+                            </button>
+                        </div>
+                        <ul class="leaderboard-list" id="leaderboard-list"></ul>
+                    </section>
                 </aside>
+            </main>
 
-                <aside class="leaderboard">
-                    <h3>🏆 Placar</h3>
-                    <ul class="leaderboard-list" id="leaderboard-list">
-                    </ul>
-                </aside>
-            </div>
-        </div>
-
-        <div id="nav-bar">
-            <h2>Selecione o modo de jogo:</h2>
-            <input type="radio" id="two-player" value="two-player" name="game-mode" class="choose" checked>
-            <label for="two-player">2 Jogadores</label>
-            <p></p>
-            <input type="radio" id="single-player" value="single" name="game-mode" class="choose">
-            <label for="single-player">1 Jogador (vs Bot)</label>
-            <p></p>
-            <button id="start-game" class="unsadden">Começar</button>
+            <section class="mode-panel card" id="nav-bar">
+                <div class="mode-header">
+                    <h2>Selecione o modo de jogo</h2>
+                    <p class="mode-description">Você pode alternar entre partidas contra o bot ou partidas online.</p>
+                </div>
+                <div class="mode-options">
+                    <label class="mode-option">
+                        <input type="radio" id="two-player" value="two-player" name="game-mode" class="choose" checked>
+                        <div>
+                            <strong>2 Jogadores</strong>
+                            <span>Desafie alguém na mesma máquina</span>
+                        </div>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" id="single-player" value="single" name="game-mode" class="choose">
+                        <div>
+                            <strong>1 Jogador</strong>
+                            <span>Jogue contra o bot estratégico</span>
+                        </div>
+                    </label>
+                </div>
+                <div class="mode-actions">
+                    <button id="start-game" class="panel-btn cta">Começar</button>
+                    <p id="mode-feedback" class="status-message" role="status" aria-live="polite"></p>
+                </div>
+            </section>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js" defer></script>
 </body>
 
 </html>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 
 <head>
     <meta charset="UTF-8">
@@ -10,7 +10,11 @@
 </head>
 
 <body>
-    <button class="panel-btn unsadden" id="dark-mode-btn">Modo Escuro</button>
+    <div class="profile-actions" style="justify-content: flex-end; gap: 10px;">
+        <button class="panel-btn ghost" id="back-to-game">Voltar</button>
+        <button class="panel-btn ghost" id="logout-btn">Sair</button>
+        <button class="panel-btn unsadden" id="dark-mode-btn">Modo Escuro</button>
+    </div>
 
     <div class="profile-container">
         <div class="profile-header">
@@ -100,7 +104,7 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="profile.js" defer></script>
 </body>
 
 </html>

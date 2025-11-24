@@ -8,6 +8,22 @@ class QueueManager {
     this.inactivityTimeout = parseInt(process.env.INACTIVITY_TIMEOUT) || 60000; // 60 segundos
     this.inactivityTimers = new Map();
     this.currentPlayers = { player1: null, player2: null };
+    this.matchReadyCallback = null;
+    this.inactiveCallback = null;
+    this.changeCallback = null;
+    this.matchInProgress = false;
+  }
+
+  setMatchReadyCallback(callback) {
+    this.matchReadyCallback = callback;
+  }
+
+  setInactiveCallback(callback) {
+    this.inactiveCallback = callback;
+  }
+
+  setChangeCallback(callback) {
+    this.changeCallback = callback;
   }
 
   // Adicionar jogador à fila
@@ -33,6 +49,9 @@ class QueueManager {
     this.queue.push(player);
     
     // Se há menos de 2 jogadores atuais, inicia partida
+    if (!this.currentPlayers.player1 || !this.currentPlayers.player2) {
+      this.assignNextPlayers();
+    }
     if (!this.currentPlayers.player1 || !this.currentPlayers.player2) {
       this.assignNextPlayers();
     }
@@ -76,6 +95,15 @@ class QueueManager {
 
     this.broadcastQueue();
     this.broadcastCurrentPlayers();
+    if (this.currentPlayers.player1 && this.currentPlayers.player2 && !this.matchInProgress) {
+      this.matchInProgress = true;
+      if (this.matchReadyCallback) {
+        this.matchReadyCallback({
+          player1: this.currentPlayers.player1,
+          player2: this.currentPlayers.player2
+        });
+      }
+    }
   }
 
   // Iniciar timer de inatividade
@@ -122,6 +150,7 @@ class QueueManager {
     if (this.currentPlayers.player2?.userId === userId) {
       this.currentPlayers.player2 = null;
     }
+    this.matchInProgress = false;
 
     this.clearInactivityTimer(userId);
     
@@ -129,6 +158,9 @@ class QueueManager {
     this.assignNextPlayers();
     
     this.io.emit('player_inactive', { userId });
+    if (this.inactiveCallback) {
+      this.inactiveCallback(userId);
+    }
   }
 
   // Verificar inatividade geral
@@ -172,6 +204,7 @@ class QueueManager {
     // Reseta jogadores atuais
     this.currentPlayers.player1 = null;
     this.currentPlayers.player2 = null;
+    this.matchInProgress = false;
 
     // Atribui próximos jogadores
     this.assignNextPlayers();
@@ -183,7 +216,8 @@ class QueueManager {
       position: index + 1,
       username: player.username,
       avatar: player.avatar,
-      status: player.status
+      status: player.status,
+      userId: player.userId
     }));
 
     this.io.emit('queue_update', {
@@ -191,6 +225,9 @@ class QueueManager {
       queueSize: this.queue.length,
       maxSize: this.maxQueueSize
     });
+    if (this.changeCallback) {
+      this.changeCallback();
+    }
   }
 
   // Broadcast dos jogadores atuais
@@ -205,6 +242,9 @@ class QueueManager {
         avatar: this.currentPlayers.player2.avatar
       } : null
     });
+    if (this.changeCallback) {
+      this.changeCallback();
+    }
   }
 
   // Obter estado atual
