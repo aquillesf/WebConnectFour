@@ -29,10 +29,9 @@ const state = {
   leaderboard: [],
   match: null,
   inQueue: false,
-  botDifficulty: 'medium' // easy | medium | hard
 };
 
-let currentGameMode = 'two-player'; // 'single' ou 'two-player'
+let videoCallManager = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
@@ -45,11 +44,11 @@ async function initApp() {
     setupStaticButtons();
     setupResignPanel();
     setupThemeCycler();
-    setupDifficultyControls(); // novo: cria controles de dificuldade
     drawBoard();
     setupBoardInteraction();
     await Promise.all([loadLeaderboard(), loadQueueSnapshot()]);
     setupSocket();
+    initVideoSystem();
     updateStatus('Escolha um modo de jogo: Bot (prática) ou Multiplayer (competitivo).');
   } catch (error) {
     console.error(error);
@@ -112,17 +111,14 @@ function setupStaticButtons() {
 
   const startBtn = document.getElementById('start-game');
   startBtn?.addEventListener('click', () => {
-    // Pega o modo selecionado
     const modeRadio = document.querySelector('input[name="game-mode"]:checked');
     if (modeRadio) {
       currentGameMode = modeRadio.value;
     }
 
     if (currentGameMode === 'single') {
-      // Inicia jogo contra bot
       startBotGame();
     } else {
-      // Entra na fila multiplayer
       joinQueue();
     }
   });
@@ -245,6 +241,12 @@ function setupSocket() {
     updateStatus(`Partida ${gameType} iniciada. ${turnMsg}`);
     updatePlayerBadges();
     updateQueueButtons();
+
+    if (!state.match.vsBot) {
+      showVideoContainer();
+    } else {
+      hideVideoContainer();
+    }
   });
 
   state.socket.on('game_update', (payload) => {
@@ -255,14 +257,12 @@ function setupSocket() {
     drawBoard();
 
     if (state.match.vsBot) {
-      // Jogo contra bot
       if (payload.currentTurn === state.user.id) {
         updateStatus('Sua vez de jogar!');
       } else if (payload.currentTurn === 'bot') {
         updateStatus('Bot está pensando...');
       }
     } else {
-      // Jogo multiplayer
       const isMyTurn = state.match.currentTurn === state.user.id;
       updateStatus(isMyTurn ? 'Sua vez de jogar!' : 'Aguardando o adversário...');
     }
@@ -287,6 +287,7 @@ function setupSocket() {
         updateStatus('Partida encerrada.');
       }
     }
+    hideVideoContainer();
     state.match = null;
     updatePlayerBadges();
     updateQueueButtons();
@@ -317,7 +318,6 @@ function startBotGame() {
     return;
   }
 
-  // envia dificuldade escolhida ao servidor para configurar o bot
   if (state.socket) {
     state.socket.emit('start_bot_game', { difficulty: state.botDifficulty });
   } else {
@@ -513,8 +513,6 @@ function drawBoard() {
   const themeIndex = parseInt(localStorage.getItem(STORAGE_KEYS.boardTheme) || '0', 10) % BOARD_THEMES.length;
   const theme = BOARD_THEMES[themeIndex];
 
-  // Use tamanho lógico do canvas para desenho (mantém alta resolução),
-  // mas centro do clique será calculado via getBoundingClientRect() no listener.
   const cellWidth = canvas.width / BOARD_COLS;
   const cellHeight = canvas.height / BOARD_ROWS;
   const radius = Math.min(cellWidth, cellHeight) / 2.5;
@@ -525,7 +523,6 @@ function drawBoard() {
 
   for (let row = 0; row < BOARD_ROWS; row += 1) {
     for (let col = 0; col < BOARD_COLS; col += 1) {
-      // Centers em pixels do canvas (interno)
       const x = col * cellWidth + cellWidth / 2;
       const y = row * cellHeight + cellHeight / 2;
       ctx.beginPath();
@@ -548,12 +545,10 @@ function drawBoard() {
   ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
 }
 
-// Novo: cria controles de dificuldade na UI e integra ao estado
 function setupDifficultyControls() {
   const modePanel = document.querySelector('.mode-options');
   if (!modePanel) return;
 
-  // container harmonioso dentro do painel (usa classes existentes)
   const wrapper = document.createElement('div');
   wrapper.className = 'mode-difficulty';
   wrapper.style.display = 'flex';
@@ -579,15 +574,12 @@ function setupDifficultyControls() {
     btn.style.padding = '6px 10px';
     btn.style.fontSize = '0.85rem';
     btn.addEventListener('click', () => {
-      // desmarca todos e marca o selecionado
       document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.botDifficulty = d;
-      // feedback visual
       updateStatus(`Dificuldade selecionada: ${names[d]}`);
     });
 
-    // seleciona médio por padrão
     if (d === state.botDifficulty) {
       btn.classList.add('active');
     }
@@ -597,11 +589,9 @@ function setupDifficultyControls() {
 
   modePanel.appendChild(wrapper);
 
-  // acessibilidade: se o usuário escolher modo single via radio, foco no botão de dificuldade
   const singleRadio = document.getElementById('single-player');
   singleRadio?.addEventListener('change', () => {
     if (singleRadio.checked) {
-      // keep current difficulty, small visual hint
       updateStatus(`Modo 1 Jogador selecionado. Dificuldade atual: ${capitalize(state.botDifficulty)}`);
     }
   });
@@ -621,33 +611,27 @@ function setupBoardInteraction() {
       return;
     }
 
-    // Verifica se é a vez do jogador
     if (state.match.vsBot) {
-      // Jogo contra bot - verifica se é a vez do jogador
       if (state.match.currentTurn !== state.user.id) {
         updateStatus('Aguarde o bot jogar.');
         return;
       }
     } else {
-      // Jogo multiplayer
       if (state.match.currentTurn !== state.user.id) {
         updateStatus('Aguarde o adversário.');
         return;
       }
     }
 
-    // Calcule coluna com precisão baseada nos círculos desenhados
     const rect = canvas.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const clickY = event.clientY - rect.top;
 
-    // use dimensões de exibição (client) para corresponder ao clique do usuário
     const cellWidth = rect.width / BOARD_COLS;
     const cellHeight = rect.height / BOARD_ROWS;
     const radius = Math.min(cellWidth, cellHeight) / 2.5;
 
     let chosenColumn = null;
-    // percorre colunas e linhas para checar se o clique caiu dentro do círculo (mais seguro)
     for (let col = 0; col < BOARD_COLS; col++) {
       for (let row = 0; row < BOARD_ROWS; row++) {
         const centerX = col * cellWidth + cellWidth / 2;
@@ -664,20 +648,16 @@ function setupBoardInteraction() {
     }
 
     if (chosenColumn === null) {
-      // clique fora dos círculos (entre colunas ou borda) -> ignorar e informar usuário
       updateStatus('Clique dentro de um círculo para selecionar a coluna correta.');
       return;
     }
 
-    // Envia o movimento (coluna) ao servidor
     state.socket.emit('player_move', {
       gameId: state.match.gameId,
       column: chosenColumn
     });
   });
 
-  // melhorar UX: hover para mostrar coluna (opcional)
-  // adicionei um mousemove que desenha um overlay sutil no canvas indicando a coluna (não intrusivo)
   let hoverOverlay = document.createElement('div');
   hoverOverlay.style.position = 'absolute';
   hoverOverlay.style.pointerEvents = 'none';
@@ -696,7 +676,6 @@ function setupBoardInteraction() {
     const x = e.clientX - rect.left;
     const cellWidth = rect.width / BOARD_COLS;
     const col = Math.floor(x / cellWidth);
-    // simples hint via cursor
     canvas.style.cursor = (col >= 0 && col < BOARD_COLS) ? 'pointer' : 'default';
   });
 
@@ -705,14 +684,10 @@ function setupBoardInteraction() {
   });
 }
 
-//////////////
-// Helpers
-//////////////
 
 function setupDifficultyDefaultsFromServer(difficulty) {
   if (difficulty) {
     state.botDifficulty = difficulty;
-    // atualiza botão ativo se já existir
     document.querySelectorAll('.difficulty-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.diff === difficulty);
     });
@@ -723,3 +698,29 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function initVideoSystem() {
+  if (!state.socket) return;
+  
+  videoCallManager = new VideoCallManager(state.socket);
+  
+  const recordBtn = document.getElementById('record-btn');
+  if (recordBtn) {
+    recordBtn.addEventListener('click', () => {
+      if (state.match && currentGameMode === 'two-player') {
+        videoCallManager.toggleRecording();
+      } else {
+        updateStatus('Gravação disponível apenas em partidas multiplayer!');
+      }
+    });
+  }
+}
+
+function showVideoContainer() {
+  const container = document.getElementById('video-container');
+  if (container) container.style.display = 'flex';
+}
+
+function hideVideoContainer() {
+  const container = document.getElementById('video-container');
+  if (container) container.style.display = 'none';
+}

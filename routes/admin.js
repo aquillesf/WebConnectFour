@@ -4,14 +4,12 @@ const User = require('../models/User');
 const Game = require('../models/Game');
 const { requireAdmin } = require('../middleware/auth');
 
-// Obter estatísticas do sistema
 router.get('/stats', requireAdmin, async (req, res) => {
   try {
     const totalUsers = await User.countDocuments();
     const totalGames = await Game.countDocuments();
     const activeGames = await Game.countDocuments({ status: 'playing' });
 
-    // Usuários ativos nas últimas 24 horas
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const activeUsers = await User.countDocuments({ 
       lastActivity: { $gte: oneDayAgo } 
@@ -35,7 +33,6 @@ router.get('/stats', requireAdmin, async (req, res) => {
   }
 });
 
-// Listar todos os usuários
 router.get('/users', requireAdmin, async (req, res) => {
   try {
     const users = await User.find()
@@ -69,13 +66,11 @@ router.get('/users', requireAdmin, async (req, res) => {
   }
 });
 
-// Deletar usuário
 router.delete('/users/:username', requireAdmin, async (req, res) => {
   try {
     const { username } = req.params;
     const { reason } = req.body;
 
-    // Não permite deletar a si mesmo
     if (username === req.session.username) {
       return res.status(400).json({ 
         success: false, 
@@ -91,7 +86,6 @@ router.delete('/users/:username', requireAdmin, async (req, res) => {
       });
     }
 
-    // Deleta jogos do usuário
     await Game.deleteMany({
       $or: [
         { player1: user._id },
@@ -99,7 +93,6 @@ router.delete('/users/:username', requireAdmin, async (req, res) => {
       ]
     });
 
-    // Deleta usuário
     await User.deleteOne({ _id: user._id });
 
     console.log(`🗑️ Admin ${req.session.username} deletou usuário ${username}. Motivo: ${reason || 'Não especificado'}`);
@@ -117,7 +110,6 @@ router.delete('/users/:username', requireAdmin, async (req, res) => {
   }
 });
 
-// Promover usuário a admin
 router.post('/users/:username/promote', requireAdmin, async (req, res) => {
   try {
     const { username } = req.params;
@@ -153,12 +145,10 @@ router.post('/users/:username/promote', requireAdmin, async (req, res) => {
   }
 });
 
-// Remover admin de usuário
 router.post('/users/:username/demote', requireAdmin, async (req, res) => {
   try {
     const { username } = req.params;
 
-    // Não permite remover admin de si mesmo
     if (username === req.session.username) {
       return res.status(400).json({ 
         success: false, 
@@ -197,7 +187,6 @@ router.post('/users/:username/demote', requireAdmin, async (req, res) => {
   }
 });
 
-// Obter todos os jogos
 router.get('/games', requireAdmin, async (req, res) => {
   try {
     const games = await Game.find()
@@ -220,7 +209,6 @@ router.get('/games', requireAdmin, async (req, res) => {
   }
 });
 
-// Limpar jogos antigos
 router.delete('/games/cleanup', requireAdmin, async (req, res) => {
   try {
     const { days } = req.body;

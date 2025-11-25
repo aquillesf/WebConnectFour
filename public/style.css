@@ -1420,3 +1420,158 @@ body.dark .no-activity {
         padding: 8px 10px;
     }
 }
+
+/* ==================================================================
+   webcam_css — estilos para componente de webcam
+   Instruções: adicionar este bloco AO FINAL de public/style.css
+   ================================================================== */
+
+/* Container principal da webcam */
+.webcam-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;        /* ajustar conforme necessário */
+  max-width: 640px;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+}
+
+/* Elemento de vídeo (stream) */
+.webcam-container video,
+.webcam-container .webcam-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+  object-fit: cover; /* cobre todo o container mantendo proporção */
+}
+
+/* Camada de overlay para controles e informações */
+.webcam-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 70%);
+  color: #fff;
+  pointer-events: none; /* permitir clique apenas nos controles explícitos */
+}
+
+.webcam-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  pointer-events: auto; /* controles recebem cliques */
+}
+
+.webcam-btn {
+  -webkit-user-select: none;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  font-size: 0.92rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer;
+  transition: background 150ms ease, transform 120ms ease;
+}
+
+.webcam-btn:active { transform: scale(0.98); }
+.webcam-btn:hover { background: rgba(255,255,255,0.12); }
+
+/* Botões de ação principais (capturar, trocar câmera, gravar) */
+.webcam-btn--primary {
+  background: linear-gradient(90deg, rgba(0,122,255,0.95), rgba(0,90,200,0.9));
+  border: none;
+  padding: 8px 12px;
+  box-shadow: 0 4px 10px rgba(0,122,255,0.18);
+}
+
+/* Feedback de gravação */
+.webcam-recording-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #ff5757;
+}
+
+.webcam-recording-indicator .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px rgba(255,87,87,0.6);
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.35); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Thumbnail gerada após captura */
+.webcam-thumbnail {
+  width: 84px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+}
+
+/* Mensagem de erro / permissões */
+.webcam-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(255,0,0,0.04), rgba(255,0,0,0.06));
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+/* Indicador de lista de câmeras disponíveis */
+.webcam-device-select {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.45);
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.92rem;
+}
+
+/* Layout responsivo: em telas pequenas coloca controles abaixo */
+@media (max-width: 480px) {
+  .webcam-overlay {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 40px;
+    padding: 12px;
+  }
+  .webcam-controls { justify-content: center; }
+  .webcam-thumbnail { width: 64px; height: 48px; }
+}
+
+/* Utility classes úteis */
+.hidden { display: none !important; }
+.center { display:flex; align-items:center; justify-content:center; }
+
+/* Pequeno reset para evitar que o vídeo herde bordas do site */
+.webcam-container video { border: 0 none; }
+
+/* Fim do bloco webcam_css */

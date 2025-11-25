@@ -1,4 +1,3 @@
-// utils/botAI.js - IA do Connect 4 com dificuldades reais
 
 const ROWS = 6;
 const COLS = 7;
@@ -9,57 +8,39 @@ const BOT = 2;
 class Connect4Bot {
   constructor(difficulty = 'hard') {
     this.difficulty = difficulty;
-
-    // HARD → forte
-    // MEDIUM → médio
-    // EASY → agora REALMENTE fácil
     this.maxDepth =
       difficulty === 'hard' ? 6 :
-      difficulty === 'medium' ? 3 :
-      0; // EASY sem minimax
-
-    // probabilidades REALISTAS
+      difficulty === 'medium' ? 3 : 0; 
     this.randomMoveChance =
       difficulty === 'easy' ? 0.95 :
       difficulty === 'medium' ? 0.25 :
       0;
 
     this.mistakeChance =
-      difficulty === 'easy' ? 0.90 :   // 90% de chance de NÃO bloquear
+      difficulty === 'easy' ? 0.90 :   
       difficulty === 'medium' ? 0.20 :
       0;
   }
 
-  // ---------------------------------------------
-  // FUNÇÃO PRINCIPAL
-  // ---------------------------------------------
   makeMove(board) {
     const validMoves = this.getValidMoves(board);
 
-    // EASY MODE → completamente burro
     if (this.difficulty === 'easy') {
       return this.makeVeryStupidMove(validMoves, board);
     }
 
-    // MEDIUM → às vezes aleatório
     if (Math.random() < this.randomMoveChance) {
       return this.getRandomMove(validMoves);
     }
 
-    // HARD E MEDIUM → minimax
     return this.getBestMove(board);
   }
 
-  // ---------------------------------------------
-  // EASY MODE REAL — bot MUITO burro
-  // ---------------------------------------------
   makeVeryStupidMove(validMoves, board) {
-    // 95% das vezes → total aleatório
     if (Math.random() < 0.95) {
       return this.getRandomMove(validMoves);
     }
 
-    // 5% → tenta vencer ou bloquear mas com 90% de erro
     const winMove = this.findWinMove(board, BOT);
     if (winMove !== null && Math.random() > this.mistakeChance) {
       return winMove;
@@ -70,18 +51,13 @@ class Connect4Bot {
       return blockMove;
     }
 
-    // resto → erro proposital
     return this.getRandomMove(validMoves);
   }
 
-  // ---------------------------------------------
-  // Movimento aleatório
-  // ---------------------------------------------
   getRandomMove(validMoves) {
     return validMoves[Math.floor(Math.random() * validMoves.length)];
   }
 
-  // procura jogada de vitória imediata
   findWinMove(board, token) {
     const validMoves = this.getValidMoves(board);
     for (const col of validMoves) {
@@ -94,9 +70,6 @@ class Connect4Bot {
     return null;
   }
 
-  // ---------------------------------------------
-  // MINIMAX (apenas medium/hard)
-  // ---------------------------------------------
   getBestMove(board) {
     let bestScore = -Infinity;
     let bestMove = null;
@@ -163,9 +136,6 @@ class Connect4Bot {
     }
   }
 
-  // ---------------------------------------------
-  // Avaliação
-  // ---------------------------------------------
   evaluateBoard(board) {
     let score = 0;
 
@@ -228,9 +198,6 @@ class Connect4Bot {
     return score;
   }
 
-  // ---------------------------------------------
-  // Utilidades
-  // ---------------------------------------------
   checkWin(board, token) {
     for (let row = 0; row < ROWS; row++)
       for (let col = 0; col < COLS - 3; col++)

@@ -7,17 +7,15 @@ const createAdmin = async () => {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ Conectado ao MongoDB');
 
-    // Verifica se já existe um admin
     const existingAdmin = await User.findOne({ isAdmin: true });
     if (existingAdmin) {
       console.log(`⚠️  Já existe um admin: ${existingAdmin.username}`);
       process.exit(0);
     }
 
-    // Cria novo admin
     const admin = new User({
       username: 'admin',
-      password: 'admin123', // MUDE ESSA SENHA!
+      password: 'admin123', 
       isAdmin: true,
       age: 30,
       city: 'Videira',

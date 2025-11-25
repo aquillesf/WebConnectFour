@@ -3,12 +3,10 @@ const router = express.Router();
 const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
 
-// Registro de usuário
 router.post('/signup', async (req, res) => {
   try {
     const { username, password, age, city, state, country } = req.body;
 
-    // Validações básicas
     if (!username || !password) {
       return res.status(400).json({ 
         success: false, 
@@ -30,7 +28,6 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // Verifica se usuário já existe
     const existingUser = await User.findOne({ username });
     if (existingUser) {
       return res.status(400).json({ 
@@ -39,7 +36,6 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // Cria novo usuário
     const user = new User({
       username,
       password,
@@ -51,7 +47,6 @@ router.post('/signup', async (req, res) => {
 
     await user.save();
 
-    // Cria sessão
     req.session.userId = user._id;
     req.session.username = user.username;
     req.session.isAdmin = user.isAdmin;
@@ -75,12 +70,10 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// Login de usuário
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Validações básicas
     if (!username || !password) {
       return res.status(400).json({ 
         success: false, 
@@ -88,7 +81,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Busca usuário
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(401).json({ 
@@ -97,7 +89,6 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Verifica senha
     const isValidPassword = await user.comparePassword(password);
     if (!isValidPassword) {
       return res.status(401).json({ 
@@ -106,10 +97,8 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Atualiza última atividade
     await user.updateActivity();
 
-    // Cria sessão
     req.session.userId = user._id;
     req.session.username = user.username;
     req.session.isAdmin = user.isAdmin;
@@ -137,7 +126,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Logout
 router.post('/logout', requireAuth, (req, res) => {
   req.session.destroy((err) => {
     if (err) {
@@ -153,7 +141,6 @@ router.post('/logout', requireAuth, (req, res) => {
   });
 });
 
-// Verificar sessão
 router.get('/check-session', (req, res) => {
   if (req.session.userId) {
     res.json({
@@ -174,7 +161,6 @@ router.get('/check-session', (req, res) => {
   }
 });
 
-// Obter perfil do usuário
 router.get('/profile', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.session.userId).select('-password');
@@ -207,7 +193,6 @@ router.get('/profile', requireAuth, async (req, res) => {
   }
 });
 
-// Atualizar perfil
 router.put('/profile', requireAuth, async (req, res) => {
   try {
     const { age, city, state, country, avatar } = req.body;
@@ -220,7 +205,6 @@ router.put('/profile', requireAuth, async (req, res) => {
       });
     }
 
-    // Atualiza campos
     if (age !== undefined) user.age = age;
     if (city !== undefined) user.city = city;
     if (state !== undefined) user.state = state;

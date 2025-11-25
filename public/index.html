@@ -9,6 +9,7 @@
     <title>Connect 4</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;400;600&display=swap" rel="stylesheet">
+    <script src="webrtc.js"></script>
 </head>
 
 <body>
@@ -34,6 +35,16 @@
                             <p>Entre na fila para encontrar um adversário.</p>
                         </div>
                         <p class="match-status" id="match-status">Aguardando ação do jogador.</p>
+                        </div>
+                        <div class="video-container" id="video-container" style="display: none;">
+                        <div class="video-wrapper">
+                            <video id="remote-video" autoplay playsinline class="remote-video"></video>
+                            <div class="video-label">Adversário</div>
+                        </div>
+                        <div class="video-wrapper local">
+                            <video id="local-video" autoplay playsinline muted class="local-video"></video>
+                            <div class="video-label">Você</div>
+                        </div>
                     </div>
 
                     <div class="canvas-wrapper">
@@ -44,6 +55,7 @@
                         <button class="panel-btn" id="resign">Desistir</button>
                         <button class="panel-btn" id="theme-change">Mudar tema</button>
                         <button class="panel-btn" id="change-mode">Trocar modo</button>
+                        <button class="panel-btn" id="record-btn">🔴 Gravar Partida</button>
                     </div>
 
                     <div class="resign-panel" id="resign-panel" hidden>

@@ -19,7 +19,6 @@ const QueueManager = require('./utils/queueManager');
 const User = require('./models/User');
 const Game = require('./models/Game');
 
-// Rotas
 const authRoutes = require('./routes/auth');
 const gameRoutes = require('./routes/game');
 const adminRoutes = require('./routes/admin');
@@ -43,7 +42,6 @@ const sessionMiddleware = session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    touchAfter: 24 * 3600 // 24 horas
   }),
   cookie: {
     maxAge: 1000 * 60 * 60 * 24 * 7,
@@ -220,45 +218,33 @@ const emitAdminStatsSafe = () => {
 
 queueManager.setChangeCallback(emitAdminStatsSafe);
 
-// ==========================================
-// MIDDLEWARE DE AUTENTICAÇÃO PARA PÁGINAS HTML
-// ==========================================
 
-// Páginas públicas (não requerem login)
 const publicPages = ['/login.html', '/signup.html'];
 
-// Middleware para verificar autenticação em todas as páginas HTML
 app.use((req, res, next) => {
-  // Se for uma requisição de arquivo estático (CSS, JS, imagens)
   if (req.path.match(/\.(css|js|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
     return next();
   }
 
-  // Se for uma rota de API, deixa passar (será verificada pelos middlewares específicos)
   if (req.path.startsWith('/api/')) {
     return next();
   }
 
-  // Se for socket.io
   if (req.path.startsWith('/socket.io/')) {
     return next();
   }
 
-  // Se for uma página pública, permite acesso
   if (publicPages.includes(req.path)) {
-    // Se já está logado e tenta acessar login/signup, redireciona
     if (req.session.userId) {
       return res.redirect('/index.html');
     }
     return next();
   }
 
-  // Para qualquer outra página, verifica se está autenticado
   if (!req.session.userId) {
     return res.redirect('/login.html');
   }
 
-  // Se for admin page, verifica se é admin
   if (req.path === '/admin.html' && !req.session.isAdmin) {
     return res.redirect('/index.html');
   }
@@ -266,11 +252,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ==========================================
-// ROTAS DE PÁGINAS
-// ==========================================
 
-// Rota raiz - redireciona baseado no estado de login
 app.get('/', (req, res) => {
   if (!req.session.userId) {
     return res.redirect('/login.html');
@@ -281,7 +263,6 @@ app.get('/', (req, res) => {
   return res.redirect('/index.html');
 });
 
-// Página de login
 app.get('/login.html', (req, res) => {
   if (req.session.userId) {
     return res.redirect('/index.html');
@@ -289,7 +270,6 @@ app.get('/login.html', (req, res) => {
   res.sendFile(path.join(publicDir, 'login.html'));
 });
 
-// Página de cadastro
 app.get('/signup.html', (req, res) => {
   if (req.session.userId) {
     return res.redirect('/index.html');
@@ -297,7 +277,6 @@ app.get('/signup.html', (req, res) => {
   res.sendFile(path.join(publicDir, 'signup.html'));
 });
 
-// Página principal do jogo (requer autenticação)
 app.get('/index.html', (req, res) => {
   if (!req.session.userId) {
     return res.redirect('/login.html');
@@ -305,7 +284,6 @@ app.get('/index.html', (req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
-// Página de perfil (requer autenticação)
 app.get('/profile.html', (req, res) => {
   if (!req.session.userId) {
     return res.redirect('/login.html');
@@ -313,7 +291,6 @@ app.get('/profile.html', (req, res) => {
   res.sendFile(path.join(publicDir, 'profile.html'));
 });
 
-// Página de admin (requer autenticação E ser admin)
 app.get('/admin.html', (req, res) => {
   if (!req.session.userId) {
     return res.redirect('/login.html');
@@ -324,18 +301,13 @@ app.get('/admin.html', (req, res) => {
   res.sendFile(path.join(publicDir, 'admin.html'));
 });
 
-// Servir arquivos estáticos (CSS, JS, imagens)
 app.use(express.static('public'));
 
-// ==========================================
-// ROTAS DE API
-// ==========================================
 
 app.use('/api/auth', authRoutes);
 app.use('/api/game', gameRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Queue endpoints
 app.post('/api/queue/join', (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({
@@ -479,7 +451,6 @@ const finalizeMatch = async (match, result) => {
       finishedAt: new Date()
     });
 
-    // IMPORTANTE: Só atualiza pontos se NÃO for contra o bot
     if (result.winnerId && !isBot) {
       const loserId = result.winnerId === match.player1.userId
         ? match.player2.userId
@@ -514,7 +485,6 @@ const startBotMatch = async (socket, userId, username, avatar, difficulty = 'med
   try {
     const game = await Game.create({
       player1: userId,
-      player2: null, // Bot não tem ID
       gameMode: 'single',
       status: 'playing',
       startedAt: new Date()
@@ -525,11 +495,9 @@ const startBotMatch = async (socket, userId, username, avatar, difficulty = 'med
       player1: { userId, username, avatar },
       player2: { userId: 'bot', username: 'Bot', avatar: '1' },
       board: createBoard(),
-      currentTurn: userId, // Jogador sempre começa
       status: 'playing',
       startedAt: game.startedAt,
       gameMode: 'single',
-      bot: new Connect4Bot(difficulty) // Cria instância do bot
     };
 
     botGames.set(match.id, match);
@@ -632,16 +600,12 @@ queueManager.setInactiveCallback((userId) => {
 const handlePlayerMove = async (socket, userId, payload) => {
   const { gameId, column } = payload || {};
   
-  // Verifica se é jogo contra bot ou multiplayer
   let match = activeGames.get(gameId) || botGames.get(gameId);
   const isBot = match?.gameMode === 'single';
 
   if (!match || match.status !== 'playing') return;
   
-  // Para jogo multiplayer, verifica se o jogador está na partida
   if (!isBot && ![match.player1.userId, match.player2.userId].includes(userId)) return;
-  
-  // Para jogo bot, verifica se é o jogador
   if (isBot && match.player1.userId !== userId) return;
 
   if (match.currentTurn !== userId) {
@@ -666,37 +630,32 @@ const handlePlayerMove = async (socket, userId, payload) => {
     queueManager.renewActivity(userId);
   }
 
-  // Emite atualização da jogada do jogador
+  if (!isBot) {
+    match.currentTurn = userId === match.player1.userId 
+      ? match.player2.userId 
+      : match.player1.userId;
+  }
+
   io.to(match.id).emit('game_update', {
     gameId: match.id,
     board: match.board,
-    currentTurn: isBot ? 'bot' : match.player2.userId,
+    currentTurn: isBot ? 'bot' : match.currentTurn,
     lastMove: { row, column, playerId: userId }
   });
 
-  // Verifica vitória do jogador
   if (hasConnectFour(match.board, row, column, token)) {
     finalizeMatch(match, { winnerId: userId, reason: 'victory' });
     return;
   }
 
-  // Verifica empate
   if (isBoardFull(match.board)) {
     finalizeMatch(match, { draw: true, reason: 'draw' });
     return;
   }
 
-  // Se for jogo contra bot, faz a jogada do bot
   if (isBot) {
     socket.emit('game_status', { message: 'Bot está pensando...' });
-    
-    // Delay para simular pensamento do bot (mais realista)
-    setTimeout(() => {
-      makeBotMove(match, socket);
-    }, 800);
-  } else {
-    // Jogo multiplayer - alterna turno
-    match.currentTurn = userId === match.player1.userId ? match.player2.userId : match.player1.userId;
+    setTimeout(() => makeBotMove(match, socket), 800);
   }
 };
 
@@ -710,11 +669,9 @@ const makeBotMove = (match, socket) => {
     return;
   }
 
-  const row = dropPiece(match.board, botMove, 2); // Bot é token 2
   
   if (row === -1) return;
 
-  // Emite jogada do bot
   io.to(match.id).emit('game_update', {
     gameId: match.id,
     board: match.board,
@@ -724,19 +681,16 @@ const makeBotMove = (match, socket) => {
 
   socket.emit('game_status', { message: 'Sua vez de jogar!' });
 
-  // Verifica vitória do bot
   if (hasConnectFour(match.board, row, botMove, 2)) {
     finalizeMatch(match, { winnerId: 'bot', reason: 'victory' });
     return;
   }
 
-  // Verifica empate
   if (isBoardFull(match.board)) {
     finalizeMatch(match, { draw: true, reason: 'draw' });
     return;
   }
 
-  // Turno volta para o jogador
   match.currentTurn = match.player1.userId;
 };
 
@@ -744,14 +698,12 @@ const handleDisconnect = (userId) => {
   userSockets.delete(userId);
   queueManager.removeFromQueue(userId);
 
-  // Verifica jogo multiplayer
   const match = getMatchByUser(userId);
   if (match && match.status === 'playing') {
     const winnerId = userId === match.player1.userId ? match.player2.userId : match.player1.userId;
     finalizeMatch(match, { winnerId, reason: 'disconnect' });
   }
 
-  // Verifica jogo bot
   for (const [gameId, botMatch] of botGames.entries()) {
     if (botMatch.player1.userId === userId && botMatch.status === 'playing') {
       finalizeMatch(botMatch, { winnerId: 'bot', reason: 'disconnect' });
@@ -815,6 +767,50 @@ io.on('connection', async (socket) => {
     queueManager.renewActivity(userId);
   });
 
+  socket.on('webrtc_offer', ({ offer }) => {
+    const match = getMatchByUser(userId);
+    if (!match) return;
+
+    const opponentId = userId === match.player1.userId 
+      ? match.player2.userId 
+      : match.player1.userId;
+
+    const opponentSocket = userSockets.get(opponentId);
+    if (opponentSocket) {
+      opponentSocket.emit('webrtc_offer', { offer });
+      console.log(`📤 WebRTC offer: ${userId} → ${opponentId}`);
+    }
+  });
+
+  socket.on('webrtc_answer', ({ answer }) => {
+    const match = getMatchByUser(userId);
+    if (!match) return;
+
+    const opponentId = userId === match.player1.userId 
+      ? match.player2.userId 
+      : match.player1.userId;
+
+    const opponentSocket = userSockets.get(opponentId);
+    if (opponentSocket) {
+      opponentSocket.emit('webrtc_answer', { answer });
+      console.log(`📤 WebRTC answer: ${userId} → ${opponentId}`);
+    }
+  });
+
+  socket.on('webrtc_ice_candidate', ({ candidate }) => {
+    const match = getMatchByUser(userId);
+    if (!match) return;
+
+    const opponentId = userId === match.player1.userId 
+      ? match.player2.userId 
+      : match.player1.userId;
+
+    const opponentSocket = userSockets.get(opponentId);
+    if (opponentSocket) {
+      opponentSocket.emit('webrtc_ice_candidate', { candidate });
+    }
+  });
+
   socket.on('disconnect', () => {
     if (sessionData.isAdmin) {
       adminSockets.delete(socket.id);
@@ -829,13 +825,10 @@ setInterval(() => {
   queueManager.checkInactivity();
 }, 10000);
 
-// Rota 404 para páginas não encontradas
 app.use((req, res, next) => {
-  // Se for uma requisição HTML e não encontrou, redireciona para login
   if (req.accepts('html')) {
     return res.redirect('/login.html');
   }
-  // Se for API, retorna 404 JSON
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ success: false, message: 'Rota não encontrada' });
   }

@@ -5,7 +5,6 @@ class QueueManager {
     this.io = io;
     this.queue = [];
     this.maxQueueSize = parseInt(process.env.QUEUE_MAX_SIZE) || 25;
-    this.inactivityTimeout = parseInt(process.env.INACTIVITY_TIMEOUT) || 60000; // 60 segundos
     this.inactivityTimers = new Map();
     this.currentPlayers = { player1: null, player2: null };
     this.matchReadyCallback = null;
@@ -26,14 +25,11 @@ class QueueManager {
     this.changeCallback = callback;
   }
 
-  // Adicionar jogador à fila
   async addToQueue(userId, username, avatar) {
-    // Verifica se já está na fila
     if (this.queue.find(p => p.userId === userId)) {
       return { success: false, message: 'Você já está na fila!' };
     }
 
-    // Verifica tamanho máximo
     if (this.queue.length >= this.maxQueueSize) {
       return { success: false, message: 'Fila cheia! Tente novamente mais tarde.' };
     }
@@ -48,7 +44,6 @@ class QueueManager {
 
     this.queue.push(player);
     
-    // Se há menos de 2 jogadores atuais, inicia partida
     if (!this.currentPlayers.player1 || !this.currentPlayers.player2) {
       this.assignNextPlayers();
     }
@@ -60,7 +55,6 @@ class QueueManager {
     return { success: true, message: 'Você entrou na fila!', position: this.queue.length };
   }
 
-  // Remover jogador da fila
   removeFromQueue(userId) {
     const index = this.queue.findIndex(p => p.userId === userId);
     if (index !== -1) {
@@ -72,21 +66,17 @@ class QueueManager {
     return { success: false, message: 'Você não está na fila!' };
   }
 
-  // Atribuir próximos jogadores
   assignNextPlayers() {
-    // Limpa jogadores inativos primeiro
     this.checkInactivity();
 
     if (this.queue.length === 0) return;
 
-    // Atribui player1 se vazio
     if (!this.currentPlayers.player1 && this.queue.length > 0) {
       this.currentPlayers.player1 = this.queue.shift();
       this.currentPlayers.player1.status = 'playing';
       this.startInactivityTimer(this.currentPlayers.player1.userId);
     }
 
-    // Atribui player2 se vazio
     if (!this.currentPlayers.player2 && this.queue.length > 0) {
       this.currentPlayers.player2 = this.queue.shift();
       this.currentPlayers.player2.status = 'playing';
@@ -106,7 +96,6 @@ class QueueManager {
     }
   }
 
-  // Iniciar timer de inatividade
   startInactivityTimer(userId) {
     this.clearInactivityTimer(userId);
     
@@ -118,7 +107,6 @@ class QueueManager {
     this.inactivityTimers.set(userId, timer);
   }
 
-  // Limpar timer de inatividade
   clearInactivityTimer(userId) {
     const timer = this.inactivityTimers.get(userId);
     if (timer) {
@@ -127,7 +115,6 @@ class QueueManager {
     }
   }
 
-  // Renovar atividade do jogador
   renewActivity(userId) {
     const player = this.getCurrentPlayer(userId);
     if (player) {
@@ -138,12 +125,9 @@ class QueueManager {
     return { success: false, message: 'Jogador não encontrado nos jogadores ativos.' };
   }
 
-  // Lidar com jogador inativo
   handleInactivePlayer(userId) {
-    // Remove da fila se estiver lá
     this.removeFromQueue(userId);
 
-    // Remove dos jogadores atuais
     if (this.currentPlayers.player1?.userId === userId) {
       this.currentPlayers.player1 = null;
     }
@@ -154,7 +138,6 @@ class QueueManager {
 
     this.clearInactivityTimer(userId);
     
-    // Atribui próximos jogadores
     this.assignNextPlayers();
     
     this.io.emit('player_inactive', { userId });
@@ -163,11 +146,9 @@ class QueueManager {
     }
   }
 
-  // Verificar inatividade geral
   checkInactivity() {
     const now = Date.now();
     
-    // Verifica player1
     if (this.currentPlayers.player1) {
       const player1Time = now - (this.currentPlayers.player1.lastActivity || this.currentPlayers.player1.joinedAt);
       if (player1Time > this.inactivityTimeout) {
@@ -175,7 +156,6 @@ class QueueManager {
       }
     }
 
-    // Verifica player2
     if (this.currentPlayers.player2) {
       const player2Time = now - (this.currentPlayers.player2.lastActivity || this.currentPlayers.player2.joinedAt);
       if (player2Time > this.inactivityTimeout) {
@@ -184,16 +164,13 @@ class QueueManager {
     }
   }
 
-  // Obter jogador atual
   getCurrentPlayer(userId) {
     if (this.currentPlayers.player1?.userId === userId) return this.currentPlayers.player1;
     if (this.currentPlayers.player2?.userId === userId) return this.currentPlayers.player2;
     return null;
   }
 
-  // Finalizar jogo e avançar fila
   finishGame(winnerId) {
-    // Limpa timers dos jogadores atuais
     if (this.currentPlayers.player1) {
       this.clearInactivityTimer(this.currentPlayers.player1.userId);
     }
@@ -201,16 +178,13 @@ class QueueManager {
       this.clearInactivityTimer(this.currentPlayers.player2.userId);
     }
 
-    // Reseta jogadores atuais
     this.currentPlayers.player1 = null;
     this.currentPlayers.player2 = null;
     this.matchInProgress = false;
 
-    // Atribui próximos jogadores
     this.assignNextPlayers();
   }
 
-  // Broadcast da fila para todos os clientes
   broadcastQueue() {
     const queueData = this.queue.map((player, index) => ({
       position: index + 1,
@@ -230,7 +204,6 @@ class QueueManager {
     }
   }
 
-  // Broadcast dos jogadores atuais
   broadcastCurrentPlayers() {
     this.io.emit('current_players', {
       player1: this.currentPlayers.player1 ? {
@@ -247,7 +220,6 @@ class QueueManager {
     }
   }
 
-  // Obter estado atual
   getState() {
     return {
       queue: this.queue,
@@ -257,7 +229,6 @@ class QueueManager {
     };
   }
 
-  // Limpar fila (admin)
   clearQueue() {
     this.queue.forEach(player => {
       this.clearInactivityTimer(player.userId);
