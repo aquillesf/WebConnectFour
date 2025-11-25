@@ -1,4 +1,4 @@
-// utils/botAI.js - IA estratégica para o Connect 4
+// utils/botAI.js - IA do Connect 4 com dificuldades reais
 
 const ROWS = 6;
 const COLS = 7;
@@ -9,32 +9,94 @@ const BOT = 2;
 class Connect4Bot {
   constructor(difficulty = 'hard') {
     this.difficulty = difficulty;
-    this.maxDepth = difficulty === 'hard' ? 6 : difficulty === 'medium' ? 4 : 2;
+
+    // HARD → forte
+    // MEDIUM → médio
+    // EASY → agora REALMENTE fácil
+    this.maxDepth =
+      difficulty === 'hard' ? 6 :
+      difficulty === 'medium' ? 3 :
+      0; // EASY sem minimax
+
+    // probabilidades REALISTAS
+    this.randomMoveChance =
+      difficulty === 'easy' ? 0.95 :
+      difficulty === 'medium' ? 0.25 :
+      0;
+
+    this.mistakeChance =
+      difficulty === 'easy' ? 0.90 :   // 90% de chance de NÃO bloquear
+      difficulty === 'medium' ? 0.20 :
+      0;
   }
 
-  // Faz a jogada do bot
+  // ---------------------------------------------
+  // FUNÇÃO PRINCIPAL
+  // ---------------------------------------------
   makeMove(board) {
     const validMoves = this.getValidMoves(board);
-    
-    if (validMoves.length === 0) {
-      return null;
+
+    // EASY MODE → completamente burro
+    if (this.difficulty === 'easy') {
+      return this.makeVeryStupidMove(validMoves, board);
     }
 
-    // Estratégia baseada na dificuldade
-    if (this.difficulty === 'easy') {
+    // MEDIUM → às vezes aleatório
+    if (Math.random() < this.randomMoveChance) {
       return this.getRandomMove(validMoves);
     }
 
-    // Para medium e hard, usa minimax
+    // HARD E MEDIUM → minimax
     return this.getBestMove(board);
   }
 
-  // Movimento aleatório (fácil)
+  // ---------------------------------------------
+  // EASY MODE REAL — bot MUITO burro
+  // ---------------------------------------------
+  makeVeryStupidMove(validMoves, board) {
+    // 95% das vezes → total aleatório
+    if (Math.random() < 0.95) {
+      return this.getRandomMove(validMoves);
+    }
+
+    // 5% → tenta vencer ou bloquear mas com 90% de erro
+    const winMove = this.findWinMove(board, BOT);
+    if (winMove !== null && Math.random() > this.mistakeChance) {
+      return winMove;
+    }
+
+    const blockMove = this.findWinMove(board, PLAYER);
+    if (blockMove !== null && Math.random() > this.mistakeChance) {
+      return blockMove;
+    }
+
+    // resto → erro proposital
+    return this.getRandomMove(validMoves);
+  }
+
+  // ---------------------------------------------
+  // Movimento aleatório
+  // ---------------------------------------------
   getRandomMove(validMoves) {
     return validMoves[Math.floor(Math.random() * validMoves.length)];
   }
 
-  // Melhor movimento usando Minimax (médio/difícil)
+  // procura jogada de vitória imediata
+  findWinMove(board, token) {
+    const validMoves = this.getValidMoves(board);
+    for (const col of validMoves) {
+      const temp = this.copyBoard(board);
+      const row = this.dropPiece(temp, col, token);
+      if (this.checkWin(temp, token)) {
+        return col;
+      }
+    }
+    return null;
+  }
+
+  // ---------------------------------------------
+  // MINIMAX (apenas medium/hard)
+  // ---------------------------------------------
   getBestMove(board) {
     let bestScore = -Infinity;
     let bestMove = null;
@@ -43,264 +105,186 @@ class Connect4Bot {
 
     for (const col of validMoves) {
       const tempBoard = this.copyBoard(board);
-      const row = this.dropPiece(tempBoard, col, BOT);
-      
-      if (row === -1) continue;
+      this.dropPiece(tempBoard, col, BOT);
 
-      const score = this.minimax(tempBoard, this.maxDepth - 1, -Infinity, Infinity, false);
-      
+      const score = this.minimax(
+        tempBoard,
+        this.maxDepth,
+        -Infinity,
+        Infinity,
+        false
+      );
+
+      if (this.difficulty === 'medium' && Math.random() < this.mistakeChance) {
+        return this.getRandomMove(validMoves);
+      }
+
       if (score > bestScore) {
         bestScore = score;
         bestMove = col;
       }
     }
 
-    return bestMove !== null ? bestMove : validMoves[0];
+    return bestMove ?? validMoves[0];
   }
 
-  // Algoritmo Minimax com poda Alpha-Beta
   minimax(board, depth, alpha, beta, isMaximizing) {
-    // Verifica condições de término
     const botWin = this.checkWin(board, BOT);
     const playerWin = this.checkWin(board, PLAYER);
-    
-    if (botWin) return 10000 + depth; // Favorece vitórias mais rápidas
-    if (playerWin) return -10000 - depth;
-    if (depth === 0 || this.isBoardFull(board)) {
-      return this.evaluateBoard(board);
-    }
+
+    if (botWin) return 10000;
+    if (playerWin) return -10000;
+    if (depth === 0 || this.isBoardFull(board)) return this.evaluateBoard(board);
 
     const validMoves = this.getValidMoves(board);
 
     if (isMaximizing) {
       let maxScore = -Infinity;
-      
       for (const col of validMoves) {
-        const tempBoard = this.copyBoard(board);
-        const row = this.dropPiece(tempBoard, col, BOT);
-        
-        if (row === -1) continue;
-        
-        const score = this.minimax(tempBoard, depth - 1, alpha, beta, false);
+        const temp = this.copyBoard(board);
+        this.dropPiece(temp, col, BOT);
+        const score = this.minimax(temp, depth - 1, alpha, beta, false);
         maxScore = Math.max(maxScore, score);
         alpha = Math.max(alpha, score);
-        
-        if (beta <= alpha) break; // Poda
+        if (beta <= alpha) break;
       }
-      
       return maxScore;
     } else {
       let minScore = Infinity;
-      
       for (const col of validMoves) {
-        const tempBoard = this.copyBoard(board);
-        const row = this.dropPiece(tempBoard, col, PLAYER);
-        
-        if (row === -1) continue;
-        
-        const score = this.minimax(tempBoard, depth - 1, alpha, beta, true);
+        const temp = this.copyBoard(board);
+        this.dropPiece(temp, col, PLAYER);
+        const score = this.minimax(temp, depth - 1, alpha, beta, true);
         minScore = Math.min(minScore, score);
         beta = Math.min(beta, score);
-        
-        if (beta <= alpha) break; // Poda
+        if (beta <= alpha) break;
       }
-      
       return minScore;
     }
   }
 
-  // Avalia o tabuleiro (heurística)
+  // ---------------------------------------------
+  // Avaliação
+  // ---------------------------------------------
   evaluateBoard(board) {
     let score = 0;
 
-    // Avalia centro (posição estratégica)
     const centerCol = Math.floor(COLS / 2);
-    let centerCount = 0;
     for (let row = 0; row < ROWS; row++) {
-      if (board[row][centerCol] === BOT) centerCount++;
+      if (board[row][centerCol] === BOT) score += 3;
     }
-    score += centerCount * 3;
 
-    // Avalia todas as sequências possíveis
     score += this.evaluateSequences(board, BOT) * 100;
     score -= this.evaluateSequences(board, PLAYER) * 100;
 
     return score;
   }
 
-  // Avalia sequências (2, 3 em linha)
   evaluateSequences(board, token) {
     let score = 0;
 
-    // Horizontal
+    const directions = [
+      { x: 1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 1, y: 1 },
+      { x: 1, y: -1 }
+    ];
+
     for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS - 3; col++) {
-        const window = [
-          board[row][col],
-          board[row][col + 1],
-          board[row][col + 2],
-          board[row][col + 3]
-        ];
-        score += this.scoreWindow(window, token);
-      }
-    }
-
-    // Vertical
-    for (let col = 0; col < COLS; col++) {
-      for (let row = 0; row < ROWS - 3; row++) {
-        const window = [
-          board[row][col],
-          board[row + 1][col],
-          board[row + 2][col],
-          board[row + 3][col]
-        ];
-        score += this.scoreWindow(window, token);
-      }
-    }
-
-    // Diagonal (esquerda-direita)
-    for (let row = 0; row < ROWS - 3; row++) {
-      for (let col = 0; col < COLS - 3; col++) {
-        const window = [
-          board[row][col],
-          board[row + 1][col + 1],
-          board[row + 2][col + 2],
-          board[row + 3][col + 3]
-        ];
-        score += this.scoreWindow(window, token);
-      }
-    }
-
-    // Diagonal (direita-esquerda)
-    for (let row = 0; row < ROWS - 3; row++) {
-      for (let col = 3; col < COLS; col++) {
-        const window = [
-          board[row][col],
-          board[row + 1][col - 1],
-          board[row + 2][col - 2],
-          board[row + 3][col - 3]
-        ];
-        score += this.scoreWindow(window, token);
+      for (let col = 0; col < COLS; col++) {
+        for (const dir of directions) {
+          const window = [];
+          for (let i = 0; i < 4; i++) {
+            const r = row + dir.y * i;
+            const c = col + dir.x * i;
+            if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+              window.push(board[r][c]);
+            }
+          }
+          if (window.length === 4) {
+            score += this.scoreWindow(window, token);
+          }
+        }
       }
     }
 
     return score;
   }
 
-  // Pontua uma janela de 4 células
   scoreWindow(window, token) {
     const opponent = token === BOT ? PLAYER : BOT;
+    const countToken = window.filter(v => v === token).length;
+    const empty = window.filter(v => v === EMPTY).length;
+    const countOpp = window.filter(v => v === opponent).length;
+
     let score = 0;
 
-    const tokenCount = window.filter(cell => cell === token).length;
-    const emptyCount = window.filter(cell => cell === EMPTY).length;
-    const opponentCount = window.filter(cell => cell === opponent).length;
+    if (countToken === 4) score += 100;
+    else if (countToken === 3 && empty === 1) score += 5;
+    else if (countToken === 2 && empty === 2) score += 2;
 
-    if (tokenCount === 4) {
-      score += 100;
-    } else if (tokenCount === 3 && emptyCount === 1) {
-      score += 5;
-    } else if (tokenCount === 2 && emptyCount === 2) {
-      score += 2;
-    }
-
-    // Penaliza se o oponente está próximo de ganhar
-    if (opponentCount === 3 && emptyCount === 1) {
-      score -= 4;
-    }
+    if (countOpp === 3 && empty === 1) score -= 4;
 
     return score;
   }
 
-  // Verifica vitória
+  // ---------------------------------------------
+  // Utilidades
+  // ---------------------------------------------
   checkWin(board, token) {
-    // Horizontal
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS - 3; col++) {
-        if (
-          board[row][col] === token &&
-          board[row][col + 1] === token &&
-          board[row][col + 2] === token &&
-          board[row][col + 3] === token
-        ) {
-          return true;
-        }
-      }
-    }
+    for (let row = 0; row < ROWS; row++)
+      for (let col = 0; col < COLS - 3; col++)
+        if (board[row][col] === token &&
+            board[row][col+1] === token &&
+            board[row][col+2] === token &&
+            board[row][col+3] === token) return true;
 
-    // Vertical
-    for (let col = 0; col < COLS; col++) {
-      for (let row = 0; row < ROWS - 3; row++) {
-        if (
-          board[row][col] === token &&
-          board[row + 1][col] === token &&
-          board[row + 2][col] === token &&
-          board[row + 3][col] === token
-        ) {
-          return true;
-        }
-      }
-    }
+    for (let col = 0; col < COLS; col++)
+      for (let row = 0; row < ROWS - 3; row++)
+        if (board[row][col] === token &&
+            board[row+1][col] === token &&
+            board[row+2][col] === token &&
+            board[row+3][col] === token) return true;
 
-    // Diagonal (esquerda-direita)
-    for (let row = 0; row < ROWS - 3; row++) {
-      for (let col = 0; col < COLS - 3; col++) {
-        if (
-          board[row][col] === token &&
-          board[row + 1][col + 1] === token &&
-          board[row + 2][col + 2] === token &&
-          board[row + 3][col + 3] === token
-        ) {
-          return true;
-        }
-      }
-    }
+    for (let row = 0; row < ROWS - 3; row++)
+      for (let col = 0; col < COLS - 3; col++)
+        if (board[row][col] === token &&
+            board[row+1][col+1] === token &&
+            board[row+2][col+2] === token &&
+            board[row+3][col+3] === token) return true;
 
-    // Diagonal (direita-esquerda)
-    for (let row = 0; row < ROWS - 3; row++) {
-      for (let col = 3; col < COLS; col++) {
-        if (
-          board[row][col] === token &&
-          board[row + 1][col - 1] === token &&
-          board[row + 2][col - 2] === token &&
-          board[row + 3][col - 3] === token
-        ) {
-          return true;
-        }
-      }
-    }
+    for (let row = 0; row < ROWS - 3; row++)
+      for (let col = 3; col < COLS; col++)
+        if (board[row][col] === token &&
+            board[row+1][col-1] === token &&
+            board[row+2][col-2] === token &&
+            board[row+3][col-3] === token) return true;
 
     return false;
   }
 
-  // Obtém movimentos válidos
   getValidMoves(board) {
-    const validMoves = [];
+    const moves = [];
     for (let col = 0; col < COLS; col++) {
-      if (board[0][col] === EMPTY) {
-        validMoves.push(col);
-      }
+      if (board[0][col] === EMPTY) moves.push(col);
     }
-    return validMoves;
+    return moves;
   }
 
-  // Verifica se o tabuleiro está cheio
   isBoardFull(board) {
     return board[0].every(cell => cell !== EMPTY);
   }
 
-  // Coloca uma peça no tabuleiro
-  dropPiece(board, column, token) {
+  dropPiece(board, col, token) {
     for (let row = ROWS - 1; row >= 0; row--) {
-      if (board[row][column] === EMPTY) {
-        board[row][column] = token;
+      if (board[row][col] === EMPTY) {
+        board[row][col] = token;
         return row;
       }
     }
     return -1;
   }
 
-  // Copia o tabuleiro
   copyBoard(board) {
     return board.map(row => [...row]);
   }

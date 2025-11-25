@@ -510,7 +510,7 @@ const finalizeMatch = async (match, result) => {
   }
 };
 
-const startBotMatch = async (socket, userId, username, avatar) => {
+const startBotMatch = async (socket, userId, username, avatar, difficulty = 'medium') => {
   try {
     const game = await Game.create({
       player1: userId,
@@ -529,7 +529,7 @@ const startBotMatch = async (socket, userId, username, avatar) => {
       status: 'playing',
       startedAt: game.startedAt,
       gameMode: 'single',
-      bot: new Connect4Bot('hard') // Cria instância do bot
+      bot: new Connect4Bot(difficulty) // Cria instância do bot
     };
 
     botGames.set(match.id, match);
@@ -762,11 +762,11 @@ const handleDisconnect = (userId) => {
 
 io.on('connection', async (socket) => {
   const sessionData = socket.request.session;
-  socket.on('start_bot_game', () => {
+  socket.on('start_bot_game', ({ difficulty }) => {
     touchOnlineUser(userId);
-    startBotMatch(socket, userId, sessionData.username, sessionData.avatar || '1');
+    startBotMatch(socket, userId, sessionData.username, sessionData.avatar || '1', difficulty);
   });
-
+  
   if (!sessionData || !sessionData.userId) {
     socket.emit('auth_required');
     socket.disconnect(true);

@@ -28,7 +28,8 @@ const state = {
   queue: [],
   leaderboard: [],
   match: null,
-  inQueue: false
+  inQueue: false,
+  botDifficulty: 'medium' // easy | medium | hard
 };
 
 let currentGameMode = 'two-player'; // 'single' ou 'two-player'
@@ -44,6 +45,7 @@ async function initApp() {
     setupStaticButtons();
     setupResignPanel();
     setupThemeCycler();
+    setupDifficultyControls(); // novo: cria controles de dificuldade
     drawBoard();
     setupBoardInteraction();
     await Promise.all([loadLeaderboard(), loadQueueSnapshot()]);
@@ -235,11 +237,11 @@ function setupSocket() {
     state.board = payload.board;
     state.inQueue = false;
     drawBoard();
-    
+
     const isMyTurn = state.match.currentTurn === state.user.id;
     const gameType = state.match.vsBot ? 'contra o Bot' : 'multiplayer';
     const turnMsg = isMyTurn ? 'Você começa! Faça sua jogada.' : 'Aguarde a sua vez.';
-    
+
     updateStatus(`Partida ${gameType} iniciada. ${turnMsg}`);
     updatePlayerBadges();
     updateQueueButtons();
@@ -247,11 +249,11 @@ function setupSocket() {
 
   state.socket.on('game_update', (payload) => {
     if (!state.match || state.match.gameId !== payload.gameId) return;
-    
+
     state.board = payload.board;
     state.match.currentTurn = payload.currentTurn;
     drawBoard();
-    
+
     if (state.match.vsBot) {
       // Jogo contra bot
       if (payload.currentTurn === state.user.id) {
@@ -270,7 +272,7 @@ function setupSocket() {
     if (state.match && state.match.gameId === payload.gameId) {
       const youWon = payload.winnerId === state.user.id;
       const vsBot = payload.vsBot || state.match.vsBot;
-      
+
       if (payload.draw) {
         updateStatus('Partida empatada! ' + (vsBot ? 'Jogue novamente.' : 'Entre na fila novamente.'));
       } else if (payload.winnerId === 'bot') {
@@ -315,8 +317,13 @@ function startBotGame() {
     return;
   }
 
-  state.socket.emit('start_bot_game');
-  updateStatus('Iniciando jogo contra o Bot...');
+  // envia dificuldade escolhida ao servidor para configurar o bot
+  if (state.socket) {
+    state.socket.emit('start_bot_game', { difficulty: state.botDifficulty });
+  } else {
+    updateStatus('Conexão não estabelecida. Tente novamente.');
+  }
+  updateStatus(`Iniciando jogo contra o Bot (Dificuldade: ${capitalize(state.botDifficulty)})...`);
 }
 
 async function joinQueue() {
@@ -325,7 +332,7 @@ async function joinQueue() {
     updateStatus('Você já está em uma partida!');
     return;
   }
-  
+
   try {
     const response = await fetch(`${QUEUE_BASE}/join`, {
       method: 'POST',
@@ -506,6 +513,8 @@ function drawBoard() {
   const themeIndex = parseInt(localStorage.getItem(STORAGE_KEYS.boardTheme) || '0', 10) % BOARD_THEMES.length;
   const theme = BOARD_THEMES[themeIndex];
 
+  // Use tamanho lógico do canvas para desenho (mantém alta resolução),
+  // mas centro do clique será calculado via getBoundingClientRect() no listener.
   const cellWidth = canvas.width / BOARD_COLS;
   const cellHeight = canvas.height / BOARD_ROWS;
   const radius = Math.min(cellWidth, cellHeight) / 2.5;
@@ -516,6 +525,7 @@ function drawBoard() {
 
   for (let row = 0; row < BOARD_ROWS; row += 1) {
     for (let col = 0; col < BOARD_COLS; col += 1) {
+      // Centers em pixels do canvas (interno)
       const x = col * cellWidth + cellWidth / 2;
       const y = row * cellHeight + cellHeight / 2;
       ctx.beginPath();
@@ -536,6 +546,69 @@ function drawBoard() {
   ctx.strokeStyle = theme.accent;
   ctx.lineWidth = 6;
   ctx.strokeRect(3, 3, canvas.width - 6, canvas.height - 6);
+}
+
+// Novo: cria controles de dificuldade na UI e integra ao estado
+function setupDifficultyControls() {
+  const modePanel = document.querySelector('.mode-options');
+  if (!modePanel) return;
+
+  // container harmonioso dentro do painel (usa classes existentes)
+  const wrapper = document.createElement('div');
+  wrapper.className = 'mode-difficulty';
+  wrapper.style.display = 'flex';
+  wrapper.style.alignItems = 'center';
+  wrapper.style.gap = '8px';
+  wrapper.style.marginTop = '12px';
+
+  const label = document.createElement('div');
+  label.textContent = 'Dificuldade:';
+  label.style.fontWeight = '600';
+  label.style.fontSize = '0.95rem';
+  wrapper.appendChild(label);
+
+  const difficulties = ['easy', 'medium', 'hard'];
+  const names = { easy: 'Fácil', medium: 'Médio', hard: 'Difícil' };
+
+  difficulties.forEach((d) => {
+    const btn = document.createElement('button');
+    btn.className = 'panel-btn ghost small difficulty-btn';
+    btn.type = 'button';
+    btn.dataset.diff = d;
+    btn.textContent = names[d];
+    btn.style.padding = '6px 10px';
+    btn.style.fontSize = '0.85rem';
+    btn.addEventListener('click', () => {
+      // desmarca todos e marca o selecionado
+      document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.botDifficulty = d;
+      // feedback visual
+      updateStatus(`Dificuldade selecionada: ${names[d]}`);
+    });
+
+    // seleciona médio por padrão
+    if (d === state.botDifficulty) {
+      btn.classList.add('active');
+    }
+
+    wrapper.appendChild(btn);
+  });
+
+  modePanel.appendChild(wrapper);
+
+  // acessibilidade: se o usuário escolher modo single via radio, foco no botão de dificuldade
+  const singleRadio = document.getElementById('single-player');
+  singleRadio?.addEventListener('change', () => {
+    if (singleRadio.checked) {
+      // keep current difficulty, small visual hint
+      updateStatus(`Modo 1 Jogador selecionado. Dificuldade atual: ${capitalize(state.botDifficulty)}`);
+    }
+  });
+}
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function setupBoardInteraction() {
@@ -563,13 +636,90 @@ function setupBoardInteraction() {
       }
     }
 
+    // Calcule coluna com precisão baseada nos círculos desenhados
     const rect = canvas.getBoundingClientRect();
-    const relativeX = event.clientX - rect.left;
-    const column = Math.floor((relativeX / canvas.width) * BOARD_COLS);
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
 
+    // use dimensões de exibição (client) para corresponder ao clique do usuário
+    const cellWidth = rect.width / BOARD_COLS;
+    const cellHeight = rect.height / BOARD_ROWS;
+    const radius = Math.min(cellWidth, cellHeight) / 2.5;
+
+    let chosenColumn = null;
+    // percorre colunas e linhas para checar se o clique caiu dentro do círculo (mais seguro)
+    for (let col = 0; col < BOARD_COLS; col++) {
+      for (let row = 0; row < BOARD_ROWS; row++) {
+        const centerX = col * cellWidth + cellWidth / 2;
+        const centerY = row * cellHeight + cellHeight / 2;
+        const dx = clickX - centerX;
+        const dy = clickY - centerY;
+        const dist2 = dx * dx + dy * dy;
+        if (dist2 <= radius * radius) {
+          chosenColumn = col;
+          break;
+        }
+      }
+      if (chosenColumn !== null) break;
+    }
+
+    if (chosenColumn === null) {
+      // clique fora dos círculos (entre colunas ou borda) -> ignorar e informar usuário
+      updateStatus('Clique dentro de um círculo para selecionar a coluna correta.');
+      return;
+    }
+
+    // Envia o movimento (coluna) ao servidor
     state.socket.emit('player_move', {
       gameId: state.match.gameId,
-      column
+      column: chosenColumn
     });
   });
+
+  // melhorar UX: hover para mostrar coluna (opcional)
+  // adicionei um mousemove que desenha um overlay sutil no canvas indicando a coluna (não intrusivo)
+  let hoverOverlay = document.createElement('div');
+  hoverOverlay.style.position = 'absolute';
+  hoverOverlay.style.pointerEvents = 'none';
+  const canvasWrapper = document.querySelector('.canvas-wrapper');
+  if (canvasWrapper) {
+    canvasWrapper.style.position = 'relative';
+    canvasWrapper.appendChild(hoverOverlay);
+    hoverOverlay.style.top = '0';
+    hoverOverlay.style.left = '0';
+    hoverOverlay.style.width = '100%';
+    hoverOverlay.style.height = '100%';
+  }
+
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const cellWidth = rect.width / BOARD_COLS;
+    const col = Math.floor(x / cellWidth);
+    // simples hint via cursor
+    canvas.style.cursor = (col >= 0 && col < BOARD_COLS) ? 'pointer' : 'default';
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    canvas.style.cursor = 'default';
+  });
 }
+
+//////////////
+// Helpers
+//////////////
+
+function setupDifficultyDefaultsFromServer(difficulty) {
+  if (difficulty) {
+    state.botDifficulty = difficulty;
+    // atualiza botão ativo se já existir
+    document.querySelectorAll('.difficulty-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.diff === difficulty);
+    });
+  }
+}
+
+function capitalize(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
