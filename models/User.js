@@ -64,7 +64,6 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Hash da senha antes de salvar
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   
@@ -77,12 +76,10 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Método para comparar senhas
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Método para atualizar última atividade
 userSchema.methods.updateActivity = function() {
   this.lastActivity = Date.now();
   return this.save();

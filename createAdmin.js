@@ -9,7 +9,7 @@ const createAdmin = async () => {
 
     const existingAdmin = await User.findOne({ isAdmin: true });
     if (existingAdmin) {
-      console.log(`⚠️  Já existe um admin: ${existingAdmin.username}`);
+      console.log(`Já existe um admin: ${existingAdmin.username}`);
       process.exit(0);
     }
 
@@ -32,7 +32,7 @@ const createAdmin = async () => {
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Erro ao criar admin:', error);
+    console.error('Erro ao criar admin:', error);
     process.exit(1);
   }
 };
