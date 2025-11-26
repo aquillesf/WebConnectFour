@@ -1421,7 +1421,7 @@ body.dark .no-activity {
     }
 }
 
-/* Container principal da webcam */
+
 .webcam-container {
   position: relative;
   display: inline-block;
@@ -1442,7 +1442,7 @@ body.dark .no-activity {
   object-fit: cover; 
 }
 
-/* Camada de overlay para controles e informações */
+
 .webcam-overlay {
   position: absolute;
   left: 0;
@@ -1462,7 +1462,7 @@ body.dark .no-activity {
   display: flex;
   gap: 8px;
   align-items: center;
-  pointer-events: auto; /* controles recebem cliques */
+  pointer-events: auto; 
 }
 
 .webcam-btn {
@@ -1484,7 +1484,7 @@ body.dark .no-activity {
 .webcam-btn:active { transform: scale(0.98); }
 .webcam-btn:hover { background: rgba(255,255,255,0.12); }
 
-/* Botões de ação principais (capturar, trocar câmera, gravar) */
+
 .webcam-btn--primary {
   background: linear-gradient(90deg, rgba(0,122,255,0.95), rgba(0,90,200,0.9));
   border: none;
@@ -1492,7 +1492,7 @@ body.dark .no-activity {
   box-shadow: 0 4px 10px rgba(0,122,255,0.18);
 }
 
-/* Feedback de gravação */
+
 .webcam-recording-indicator {
   display: inline-flex;
   align-items: center;
@@ -1516,7 +1516,7 @@ body.dark .no-activity {
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* Thumbnail gerada após captura */
+
 .webcam-thumbnail {
   width: 84px;
   height: 64px;
@@ -1526,7 +1526,7 @@ body.dark .no-activity {
   box-shadow: 0 4px 12px rgba(0,0,0,0.35);
 }
 
-/* Mensagem de erro / permissões */
+
 .webcam-error {
   display: flex;
   align-items: center;
@@ -1538,7 +1538,7 @@ body.dark .no-activity {
   font-size: 0.95rem;
 }
 
-/* Indicador de lista de câmeras disponíveis */
+
 .webcam-device-select {
   appearance: none;
   border: 1px solid rgba(255,255,255,0.08);
@@ -1549,7 +1549,7 @@ body.dark .no-activity {
   font-size: 0.92rem;
 }
 
-/* Layout responsivo: em telas pequenas coloca controles abaixo */
+
 @media (max-width: 480px) {
   .webcam-overlay {
     flex-direction: column;
@@ -1561,11 +1561,11 @@ body.dark .no-activity {
   .webcam-thumbnail { width: 64px; height: 48px; }
 }
 
-/* Utility classes úteis */
+
 .hidden { display: none !important; }
 .center { display:flex; align-items:center; justify-content:center; }
 
-/* Pequeno reset para evitar que o vídeo herde bordas do site */
+
 .webcam-container video { border: 0 none; }
 
-/* Fim do bloco webcam_css */
+
