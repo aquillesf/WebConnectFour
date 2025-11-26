@@ -174,28 +174,38 @@ class VideoCallManager {
       const drawFrame = () => {
         if (!this.isRecording) return;
 
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Vídeo remoto ocupa a maior parte da tela
-        if (remoteVideo?.srcObject && remoteVideo.readyState >= 2) {
-          ctx.drawImage(remoteVideo, 0, 0, 1280, 720);
+        // Fundo principal: tabuleiro do jogo cobrindo a tela inteira
+        if (gameCanvas) {
+          ctx.drawImage(gameCanvas, 0, 0, canvas.width, canvas.height);
+        } else {
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        // Vídeo local como PIP (Picture-in-Picture) no canto
-        if (localVideo?.srcObject && localVideo.readyState >= 2) {
-          const pipWidth = 240;
-          const pipHeight = 180;
-          const margin = 20;
-          const pipX = 1280 - pipWidth - margin;
-          const pipY = 720 - pipHeight - margin;
-          
-          ctx.drawImage(localVideo, pipX, pipY, pipWidth, pipHeight);
-          
-          // Borda ao redor do vídeo local
+        const margin = 20;
+        const pipWidth = 260;
+        const pipHeight = 195;
+
+        // Webcam do adversário no canto inferior esquerdo
+        if (remoteVideo && remoteVideo.srcObject && remoteVideo.readyState >= 2) {
+          const x = margin;
+          const y = canvas.height - pipHeight - margin;
+          ctx.drawImage(remoteVideo, x, y, pipWidth, pipHeight);
+
           ctx.strokeStyle = '#5d98ff';
           ctx.lineWidth = 3;
-          ctx.strokeRect(pipX, pipY, pipWidth, pipHeight);
+          ctx.strokeRect(x, y, pipWidth, pipHeight);
+        }
+
+        // Sua webcam no canto inferior direito
+        if (localVideo && localVideo.srcObject && localVideo.readyState >= 2) {
+          const x = canvas.width - pipWidth - margin;
+          const y = canvas.height - pipHeight - margin;
+          ctx.drawImage(localVideo, x, y, pipWidth, pipHeight);
+
+          ctx.strokeStyle = '#5d98ff';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x, y, pipWidth, pipHeight);
         }
 
         requestAnimationFrame(drawFrame);
