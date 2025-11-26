@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Game = require('../models/Game');
 const { requireAuth } = require('../middleware/auth');
 
-// Obter leaderboard
+
 router.get('/leaderboard', async (req, res) => {
   try {
     const users = await User.find()
@@ -32,7 +32,7 @@ router.get('/leaderboard', async (req, res) => {
   }
 });
 
-// Registrar vitória
+
 router.post('/record-win', requireAuth, async (req, res) => {
   try {
     const { points } = req.body;
@@ -64,7 +64,7 @@ router.post('/record-win', requireAuth, async (req, res) => {
   }
 });
 
-//registrar derrota
+// Registrar derrota
 router.post('/record-loss', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.session.userId);
@@ -92,6 +92,7 @@ router.post('/record-loss', requireAuth, async (req, res) => {
   }
 });
 
+// Criar novo jogo
 router.post('/create-game', requireAuth, async (req, res) => {
   try {
     const { gameMode } = req.body;
@@ -118,7 +119,7 @@ router.post('/create-game', requireAuth, async (req, res) => {
   }
 });
 
-// Finalizar jogo
+
 router.post('/finish-game', requireAuth, async (req, res) => {
   try {
     const { gameId, winnerId, boardPosition } = req.body;
@@ -137,7 +138,7 @@ router.post('/finish-game', requireAuth, async (req, res) => {
     game.finishedAt = Date.now();
     await game.save();
 
-    // Atualiza estatísticas dos jogadores
+    
     if (winnerId) {
       const winner = await User.findById(winnerId);
       if (winner) {
@@ -146,7 +147,7 @@ router.post('/finish-game', requireAuth, async (req, res) => {
         await winner.save();
       }
 
-      // Atualiza loser
+      
       const loserId = game.player1.toString() === winnerId.toString() 
         ? game.player2 
         : game.player1;
@@ -174,7 +175,7 @@ router.post('/finish-game', requireAuth, async (req, res) => {
   }
 });
 
-// Obter histórico de jogos
+
 router.get('/game-history', requireAuth, async (req, res) => {
   try {
     const games = await Game.find({
