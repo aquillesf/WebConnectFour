@@ -27,18 +27,18 @@ class QueueManager {
   }
 
   async addToQueue(userId, username, avatar) {
-    // Verifica se já está na fila
+    
     if (this.queue.find(p => p.userId === userId)) {
       return { success: false, message: 'Você já está na fila!' };
     }
 
-    // Verifica se já está jogando
+    
     if (this.currentPlayers.player1?.userId === userId || 
         this.currentPlayers.player2?.userId === userId) {
       return { success: false, message: 'Você já está em uma partida!' };
     }
 
-    // Verifica se a fila está cheia
+    
     if (this.queue.length >= this.maxQueueSize) {
       return { success: false, message: 'Fila cheia! Tente novamente mais tarde.' };
     }
@@ -54,7 +54,7 @@ class QueueManager {
     this.queue.push(player);
     console.log(`✅ Jogador ${username} entrou na fila. Total na fila: ${this.queue.length}`);
     
-    // Tenta iniciar partida se não houver nenhuma em progresso
+    
     this.tryStartMatch();
 
     this.broadcastQueue();
@@ -75,9 +75,7 @@ class QueueManager {
   }
 
   tryStartMatch() {
-    // Só tenta iniciar partida se:
-    // 1. Não há partida em progresso
-    // 2. Há pelo menos 2 jogadores na fila
+    
     if (this.matchInProgress) {
       console.log('⏳ Partida já em progresso. Aguardando conclusão...');
       return;
@@ -88,11 +86,11 @@ class QueueManager {
       return;
     }
 
-    // Pega os 2 primeiros da fila
+    
     const player1 = this.queue[0];
     const player2 = this.queue[1];
 
-    // Remove da fila e marca como jogando
+    
     this.queue.shift();
     this.queue.shift();
 
@@ -106,14 +104,14 @@ class QueueManager {
     console.log(`🎮 Iniciando partida: ${player1.username} vs ${player2.username}`);
     console.log(`📊 Jogadores restantes na fila: ${this.queue.length}`);
 
-    // Inicia timers de inatividade
+    
     this.startInactivityTimer(player1.userId);
     this.startInactivityTimer(player2.userId);
 
     this.broadcastQueue();
     this.broadcastCurrentPlayers();
 
-    // Callback para iniciar a partida no servidor
+    
     if (this.matchReadyCallback) {
       this.matchReadyCallback({
         player1: this.currentPlayers.player1,
@@ -155,10 +153,10 @@ class QueueManager {
   handleInactivePlayer(userId) {
     console.log(`❌ Removendo jogador inativo: ${userId}`);
     
-    // Remove da fila se estiver lá
+    
     this.removeFromQueue(userId);
 
-    // Se estiver jogando, encerra a partida
+    
     const wasPlaying = this.currentPlayers.player1?.userId === userId || 
                        this.currentPlayers.player2?.userId === userId;
 
@@ -171,7 +169,7 @@ class QueueManager {
 
     this.clearInactivityTimer(userId);
     
-    // Tenta iniciar nova partida se houver jogadores aguardando
+    
     this.tryStartMatch();
     
     this.io.emit('player_inactive', { userId });
@@ -222,7 +220,7 @@ class QueueManager {
     
     this.broadcastCurrentPlayers();
     
-    // Tenta iniciar nova partida com os próximos da fila
+    
     this.tryStartMatch();
   }
 
