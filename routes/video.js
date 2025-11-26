@@ -26,6 +26,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
+    fileSize: 500 * 1024 * 1024 
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'video/webm' || file.mimetype === 'video/mp4') {
@@ -35,6 +36,7 @@ const upload = multer({
     }
   }
 });
+
 
 async function cleanupFiles(...paths) {
   for (const filePath of paths) {
@@ -56,6 +58,7 @@ function checkFFmpeg() {
     });
   });
 }
+
 
 router.post('/', upload.single('video'), async (req, res) => {
   let inputPath = null;
@@ -214,5 +217,6 @@ setInterval(async () => {
   } catch (error) {
     console.error('⚠️ Erro na limpeza automática:', error.message);
   }
+}, 600000); 
 
 module.exports = router;
