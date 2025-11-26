@@ -121,9 +121,12 @@ class VideoCallManager {
     });
 
     this.socket.on('game_over', () => {
-      this.stopRecording();
-      this.stopLocalVideo();
-      this.closePeerConnection();
+      const EXTRA_MS = 3000; 
+      setTimeout(() => {
+        this.stopRecording();
+        this.stopLocalVideo();
+        this.closePeerConnection();
+      }, EXTRA_MS);
     });
   }
 
@@ -166,20 +169,30 @@ class VideoCallManager {
 
       const localVideo = document.getElementById('local-video');
       const remoteVideo = document.getElementById('remote-video');
+      const gameCanvas = document.getElementById('game');
 
       const drawFrame = () => {
         if (!this.isRecording) return;
 
-        ctx.fillStyle = '#000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Vídeo remoto ocupa a maior parte da tela
-        if (remoteVideo?.srcObject && remoteVideo.readyState >= 2) {
-          ctx.drawImage(remoteVideo, 0, 0, 1280, 720);
+        if (gameCanvas) {
+          ctx.drawImage(gameCanvas, 0, 0, canvas.width, canvas.height);
+        } else {
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        // Vídeo local como PIP (Picture-in-Picture) no canto
-        if (localVideo?.srcObject && localVideo.readyState >= 2) {
+        if (remoteVideo && remoteVideo.srcObject && remoteVideo.videoWidth > 0) {
+          const remoteWidth = 480;
+          const remoteHeight = 360;
+          const margin = 20;
+          ctx.drawImage(remoteVideo, margin, margin, remoteWidth, remoteHeight);
+
+          ctx.strokeStyle = '#5d98ff';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(margin, margin, remoteWidth, remoteHeight);
+        }
+
+        if (localVideo && localVideo.srcObject && localVideo.videoWidth > 0) {
           const pipWidth = 240;
           const pipHeight = 180;
           const margin = 20;
@@ -188,7 +201,6 @@ class VideoCallManager {
           
           ctx.drawImage(localVideo, pipX, pipY, pipWidth, pipHeight);
           
-          // Borda ao redor do vídeo local
           ctx.strokeStyle = '#5d98ff';
           ctx.lineWidth = 3;
           ctx.strokeRect(pipX, pipY, pipWidth, pipHeight);
@@ -412,7 +424,6 @@ class VideoCallManager {
 
 window.VideoCallManager = VideoCallManager;
 
-// CSS para webcams
 const style = document.createElement('style');
 style.textContent = `
   .video-container {

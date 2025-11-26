@@ -64,7 +64,7 @@ router.post('/record-win', requireAuth, async (req, res) => {
   }
 });
 
-// Registrar derrota
+//registrar derrota
 router.post('/record-loss', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.session.userId);
@@ -92,7 +92,6 @@ router.post('/record-loss', requireAuth, async (req, res) => {
   }
 });
 
-// Criar novo jogo
 router.post('/create-game', requireAuth, async (req, res) => {
   try {
     const { gameMode } = req.body;

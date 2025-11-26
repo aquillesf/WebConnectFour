@@ -35,6 +35,7 @@ const io = new Server(server, {
   }
 });
 
+
 connectDB();
 
 const sessionMiddleware = session({
@@ -143,7 +144,6 @@ app.use(rateLimit({
   legacyHeaders: false
 }));
 
-app.use('/api', videoRoutes);
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
@@ -151,17 +151,33 @@ app.use(mongoSanitize());
 app.use(xssClean());
 app.use(hpp());
 app.use(sessionMiddleware);
-app.use(csrf({ cookie: true }));
+app.use('/api/convert-video', videoRoutes);
+
+const csrfExclude = [
+  '/api/queue',
+  '/api/game/webrtc',
+  '/socket.io',
+  '/api/convert-video'
+];
 
 app.use((req, res, next) => {
-  res.cookie('XSRF-TOKEN', req.csrfToken(), {
-    httpOnly: false,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production'
-  });
-  next();
+  if (csrfExclude.some(route => req.path.startsWith(route))) {
+    return next();
+  }
+
+  csrf({ cookie: true })(req, res, next);
 });
 
+app.use((req, res, next) => {
+  if (req.csrfToken) {
+    res.cookie("XSRF-TOKEN", req.csrfToken(), {
+      httpOnly: false,
+      secure: false,
+      sameSite: "lax"
+    });
+  }
+  next();
+});
 io.use((socket, next) => {
   sessionMiddleware(socket.request, socket.request.res || {}, next);
 });
@@ -517,6 +533,9 @@ const startBotMatch = async (socket, userId, username, avatar, difficulty = 'med
       status: 'playing',
       startedAt: game.startedAt,
       gameMode: 'single',
+      currentTurn: userId,
+      bot: new Connect4Bot(difficulty),
+      difficulty
     };
 
     botGames.set(match.id, match);
@@ -688,7 +707,7 @@ const makeBotMove = (match, socket) => {
     return;
   }
 
-  
+  const row = dropPiece(match.board, botMove, 2);
   if (row === -1) return;
 
   io.to(match.id).emit('game_update', {
@@ -733,11 +752,7 @@ const handleDisconnect = (userId) => {
 
 io.on('connection', async (socket) => {
   const sessionData = socket.request.session;
-  socket.on('start_bot_game', ({ difficulty }) => {
-    touchOnlineUser(userId);
-    startBotMatch(socket, userId, sessionData.username, sessionData.avatar || '1', difficulty);
-  });
-  
+
   if (!sessionData || !sessionData.userId) {
     socket.emit('auth_required');
     socket.disconnect(true);
@@ -772,6 +787,11 @@ io.on('connection', async (socket) => {
   } catch (error) {
     console.error('Erro ao enviar leaderboard inicial:', error);
   }
+
+  socket.on('start_bot_game', ({ difficulty }) => {
+    touchOnlineUser(userId);
+    startBotMatch(socket, userId, sessionData.username, sessionData.avatar || '1', difficulty);
+  });
 
   socket.on('player_move', (payload) => {
     touchOnlineUser(userId);

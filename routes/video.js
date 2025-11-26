@@ -5,9 +5,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
-const { requireAuth } = require('../middleware/auth');
 
-// Configuração do storage do Multer
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const dir = path.join(__dirname, '../temp');
@@ -19,7 +17,8 @@ const storage = multer.diskStorage({
     }
   },
   filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${req.session.userId || 'unknown'}.webm`;
+    const userId = req.session?.userId || 'anonymous';
+    const uniqueName = `${Date.now()}-${userId}.webm`;
     cb(null, uniqueName);
   }
 });
@@ -27,7 +26,6 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === 'video/webm' || file.mimetype === 'video/mp4') {
@@ -38,7 +36,6 @@ const upload = multer({
   }
 });
 
-// Função auxiliar para limpar arquivos
 async function cleanupFiles(...paths) {
   for (const filePath of paths) {
     try {
@@ -52,7 +49,6 @@ async function cleanupFiles(...paths) {
   }
 }
 
-// Função para verificar se FFmpeg está disponível
 function checkFFmpeg() {
   return new Promise((resolve) => {
     ffmpeg.getAvailableFormats((err) => {
@@ -61,13 +57,25 @@ function checkFFmpeg() {
   });
 }
 
-router.post('/convert-video', requireAuth, upload.single('video'), async (req, res) => {
+router.post('/', upload.single('video'), async (req, res) => {
   let inputPath = null;
   let outputPath = null;
 
   try {
-    // Verifica se o arquivo foi enviado
+    console.log('📥 Requisição de conversão recebida');
+    console.log('Session exists:', !!req.session);
+    console.log('Session userId:', req.session?.userId);
+    
+    if (!req.session || !req.session.userId) {
+      console.error('❌ Sessão inválida na conversão de vídeo');
+      return res.status(401).json({
+        success: false,
+        message: 'Sessão não encontrada. Faça login novamente.'
+      });
+    }
+
     if (!req.file) {
+      console.error('❌ Nenhum arquivo enviado');
       return res.status(400).json({
         success: false,
         message: 'Nenhum arquivo enviado'
@@ -83,13 +91,11 @@ router.post('/convert-video', requireAuth, upload.single('video'), async (req, r
     console.log('📥 Arquivo recebido:', path.basename(inputPath));
     console.log('📤 Arquivo de saída:', path.basename(outputPath));
 
-    // Verifica se FFmpeg está disponível
     const ffmpegAvailable = await checkFFmpeg();
     if (!ffmpegAvailable) {
       throw new Error('FFmpeg não está disponível no sistema');
     }
 
-    // Verifica se o arquivo de entrada existe e tem tamanho válido
     const stats = await fs.stat(inputPath);
     if (stats.size === 0) {
       throw new Error('Arquivo de entrada está vazio');
@@ -97,7 +103,6 @@ router.post('/convert-video', requireAuth, upload.single('video'), async (req, r
 
     console.log(`📊 Tamanho do arquivo: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
 
-    // Realiza a conversão
     await new Promise((resolve, reject) => {
       const command = ffmpeg(inputPath)
         .videoCodec('libx264')
@@ -114,7 +119,6 @@ router.post('/convert-video', requireAuth, upload.single('video'), async (req, r
         ])
         .on('start', (cmd) => {
           console.log('🎬 Iniciando conversão FFmpeg...');
-          console.log('Comando:', cmd);
         })
         .on('progress', (progress) => {
           if (progress.percent) {
@@ -136,7 +140,6 @@ router.post('/convert-video', requireAuth, upload.single('video'), async (req, r
       command.save(outputPath);
     });
 
-    // Verifica se o arquivo de saída foi criado
     if (!fsSync.existsSync(outputPath)) {
       throw new Error('Arquivo de saída não foi criado');
     }
@@ -148,27 +151,31 @@ router.post('/convert-video', requireAuth, upload.single('video'), async (req, r
 
     console.log(`📦 Arquivo convertido: ${(outputStats.size / 1024 / 1024).toFixed(2)} MB`);
 
-    // Envia o arquivo
-    res.download(outputPath, `connect4-game-${Date.now()}.mp4`, async (err) => {
-      // Limpa os arquivos após o download (com sucesso ou erro)
-      await cleanupFiles(inputPath, outputPath);
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="connect4-game-${Date.now()}.mp4"`);
+    res.setHeader('Content-Length', outputStats.size);
 
-      if (err) {
-        console.error('❌ Erro ao enviar arquivo:', err.message);
-      } else {
-        console.log('✅ Arquivo enviado com sucesso');
-      }
+    const readStream = fsSync.createReadStream(outputPath);
+    readStream.pipe(res);
+
+    readStream.on('end', async () => {
+      console.log('✅ Arquivo enviado com sucesso');
+      await cleanupFiles(inputPath, outputPath);
+    });
+
+    readStream.on('error', async (err) => {
+      console.error('❌ Erro ao enviar arquivo:', err.message);
+      await cleanupFiles(inputPath, outputPath);
     });
 
   } catch (error) {
     console.error('❌ Erro na conversão:', error.message);
+    console.error(error.stack);
 
-    // Limpa arquivos em caso de erro
     if (inputPath || outputPath) {
       await cleanupFiles(inputPath, outputPath);
     }
 
-    // Envia resposta de erro apropriada
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
@@ -179,7 +186,6 @@ router.post('/convert-video', requireAuth, upload.single('video'), async (req, r
   }
 });
 
-// Limpeza automática de arquivos antigos (roda a cada 10 minutos)
 setInterval(async () => {
   const tempDir = path.join(__dirname, '../temp');
   try {
@@ -208,6 +214,5 @@ setInterval(async () => {
   } catch (error) {
     console.error('⚠️ Erro na limpeza automática:', error.message);
   }
-}, 600000); // 10 minutos
 
 module.exports = router;

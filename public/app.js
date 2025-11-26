@@ -29,6 +29,7 @@ const state = {
   leaderboard: [],
   match: null,
   inQueue: false,
+  botDifficulty: 'medium',
 };
 
 let videoCallManager = null;
@@ -42,6 +43,7 @@ async function initApp() {
     await ensureSession();
     setupDarkMode();
     setupStaticButtons();
+    setupDifficultyControls();
     setupResignPanel();
     setupThemeCycler();
     drawBoard();
