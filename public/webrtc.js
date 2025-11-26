@@ -173,12 +173,12 @@ class VideoCallManager {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Vídeo remoto ocupa a maior parte da tela
+        
         if (remoteVideo?.srcObject && remoteVideo.readyState >= 2) {
           ctx.drawImage(remoteVideo, 0, 0, 1280, 720);
         }
 
-        // Vídeo local como PIP (Picture-in-Picture) no canto
+        
         if (localVideo?.srcObject && localVideo.readyState >= 2) {
           const pipWidth = 240;
           const pipHeight = 180;
@@ -188,7 +188,7 @@ class VideoCallManager {
           
           ctx.drawImage(localVideo, pipX, pipY, pipWidth, pipHeight);
           
-          // Borda ao redor do vídeo local
+          
           ctx.strokeStyle = '#5d98ff';
           ctx.lineWidth = 3;
           ctx.strokeRect(pipX, pipY, pipWidth, pipHeight);
@@ -412,7 +412,7 @@ class VideoCallManager {
 
 window.VideoCallManager = VideoCallManager;
 
-// CSS para webcams
+
 const style = document.createElement('style');
 style.textContent = `
   .video-container {
