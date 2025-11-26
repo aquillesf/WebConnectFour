@@ -11,6 +11,7 @@ class QueueManager {
     this.inactiveCallback = null;
     this.changeCallback = null;
     this.matchInProgress = false;
+    this.inactivityTimeout = parseInt(process.env.INACTIVITY_TIMEOUT) || 60000;
   }
 
   setMatchReadyCallback(callback) {
@@ -26,10 +27,18 @@ class QueueManager {
   }
 
   async addToQueue(userId, username, avatar) {
+    // Verifica se já está na fila
     if (this.queue.find(p => p.userId === userId)) {
       return { success: false, message: 'Você já está na fila!' };
     }
 
+    // Verifica se já está jogando
+    if (this.currentPlayers.player1?.userId === userId || 
+        this.currentPlayers.player2?.userId === userId) {
+      return { success: false, message: 'Você já está em uma partida!' };
+    }
+
+    // Verifica se a fila está cheia
     if (this.queue.length >= this.maxQueueSize) {
       return { success: false, message: 'Fila cheia! Tente novamente mais tarde.' };
     }
@@ -43,13 +52,10 @@ class QueueManager {
     };
 
     this.queue.push(player);
+    console.log(`✅ Jogador ${username} entrou na fila. Total na fila: ${this.queue.length}`);
     
-    if (!this.currentPlayers.player1 || !this.currentPlayers.player2) {
-      this.assignNextPlayers();
-    }
-    if (!this.currentPlayers.player1 || !this.currentPlayers.player2) {
-      this.assignNextPlayers();
-    }
+    // Tenta iniciar partida se não houver nenhuma em progresso
+    this.tryStartMatch();
 
     this.broadcastQueue();
     return { success: true, message: 'Você entrou na fila!', position: this.queue.length };
@@ -58,41 +64,61 @@ class QueueManager {
   removeFromQueue(userId) {
     const index = this.queue.findIndex(p => p.userId === userId);
     if (index !== -1) {
+      const player = this.queue[index];
       this.queue.splice(index, 1);
       this.clearInactivityTimer(userId);
+      console.log(`🚪 Jogador ${player.username} saiu da fila. Total na fila: ${this.queue.length}`);
       this.broadcastQueue();
       return { success: true, message: 'Você saiu da fila!' };
     }
     return { success: false, message: 'Você não está na fila!' };
   }
 
-  assignNextPlayers() {
-    this.checkInactivity();
-
-    if (this.queue.length === 0) return;
-
-    if (!this.currentPlayers.player1 && this.queue.length > 0) {
-      this.currentPlayers.player1 = this.queue.shift();
-      this.currentPlayers.player1.status = 'playing';
-      this.startInactivityTimer(this.currentPlayers.player1.userId);
+  tryStartMatch() {
+    // Só tenta iniciar partida se:
+    // 1. Não há partida em progresso
+    // 2. Há pelo menos 2 jogadores na fila
+    if (this.matchInProgress) {
+      console.log('⏳ Partida já em progresso. Aguardando conclusão...');
+      return;
     }
 
-    if (!this.currentPlayers.player2 && this.queue.length > 0) {
-      this.currentPlayers.player2 = this.queue.shift();
-      this.currentPlayers.player2.status = 'playing';
-      this.startInactivityTimer(this.currentPlayers.player2.userId);
+    if (this.queue.length < 2) {
+      console.log(`⏳ Apenas ${this.queue.length} jogador(es) na fila. Aguardando mais jogadores...`);
+      return;
     }
+
+    // Pega os 2 primeiros da fila
+    const player1 = this.queue[0];
+    const player2 = this.queue[1];
+
+    // Remove da fila e marca como jogando
+    this.queue.shift();
+    this.queue.shift();
+
+    player1.status = 'playing';
+    player2.status = 'playing';
+
+    this.currentPlayers.player1 = player1;
+    this.currentPlayers.player2 = player2;
+    this.matchInProgress = true;
+
+    console.log(`🎮 Iniciando partida: ${player1.username} vs ${player2.username}`);
+    console.log(`📊 Jogadores restantes na fila: ${this.queue.length}`);
+
+    // Inicia timers de inatividade
+    this.startInactivityTimer(player1.userId);
+    this.startInactivityTimer(player2.userId);
 
     this.broadcastQueue();
     this.broadcastCurrentPlayers();
-    if (this.currentPlayers.player1 && this.currentPlayers.player2 && !this.matchInProgress) {
-      this.matchInProgress = true;
-      if (this.matchReadyCallback) {
-        this.matchReadyCallback({
-          player1: this.currentPlayers.player1,
-          player2: this.currentPlayers.player2
-        });
-      }
+
+    // Callback para iniciar a partida no servidor
+    if (this.matchReadyCallback) {
+      this.matchReadyCallback({
+        player1: this.currentPlayers.player1,
+        player2: this.currentPlayers.player2
+      });
     }
   }
 
@@ -118,6 +144,7 @@ class QueueManager {
   renewActivity(userId) {
     const player = this.getCurrentPlayer(userId);
     if (player) {
+      player.lastActivity = Date.now();
       this.clearInactivityTimer(userId);
       this.startInactivityTimer(userId);
       return { success: true, message: 'Atividade renovada!' };
@@ -126,19 +153,26 @@ class QueueManager {
   }
 
   handleInactivePlayer(userId) {
+    console.log(`❌ Removendo jogador inativo: ${userId}`);
+    
+    // Remove da fila se estiver lá
     this.removeFromQueue(userId);
 
-    if (this.currentPlayers.player1?.userId === userId) {
+    // Se estiver jogando, encerra a partida
+    const wasPlaying = this.currentPlayers.player1?.userId === userId || 
+                       this.currentPlayers.player2?.userId === userId;
+
+    if (wasPlaying) {
       this.currentPlayers.player1 = null;
-    }
-    if (this.currentPlayers.player2?.userId === userId) {
       this.currentPlayers.player2 = null;
+      this.matchInProgress = false;
+      console.log('🔄 Partida encerrada por inatividade. Tentando iniciar nova partida...');
     }
-    this.matchInProgress = false;
 
     this.clearInactivityTimer(userId);
     
-    this.assignNextPlayers();
+    // Tenta iniciar nova partida se houver jogadores aguardando
+    this.tryStartMatch();
     
     this.io.emit('player_inactive', { userId });
     if (this.inactiveCallback) {
@@ -171,6 +205,8 @@ class QueueManager {
   }
 
   finishGame(winnerId) {
+    console.log(`🏁 Partida finalizada. Vencedor: ${winnerId || 'Empate'}`);
+    
     if (this.currentPlayers.player1) {
       this.clearInactivityTimer(this.currentPlayers.player1.userId);
     }
@@ -182,7 +218,12 @@ class QueueManager {
     this.currentPlayers.player2 = null;
     this.matchInProgress = false;
 
-    this.assignNextPlayers();
+    console.log(`📊 Jogadores na fila aguardando: ${this.queue.length}`);
+    
+    this.broadcastCurrentPlayers();
+    
+    // Tenta iniciar nova partida com os próximos da fila
+    this.tryStartMatch();
   }
 
   broadcastQueue() {
@@ -199,6 +240,7 @@ class QueueManager {
       queueSize: this.queue.length,
       maxSize: this.maxQueueSize
     });
+    
     if (this.changeCallback) {
       this.changeCallback();
     }
@@ -215,6 +257,7 @@ class QueueManager {
         avatar: this.currentPlayers.player2.avatar
       } : null
     });
+    
     if (this.changeCallback) {
       this.changeCallback();
     }
@@ -222,7 +265,13 @@ class QueueManager {
 
   getState() {
     return {
-      queue: this.queue,
+      queue: this.queue.map((player, index) => ({
+        position: index + 1,
+        username: player.username,
+        avatar: player.avatar,
+        status: player.status,
+        userId: player.userId
+      })),
       currentPlayers: this.currentPlayers,
       queueSize: this.queue.length,
       maxSize: this.maxQueueSize
@@ -230,6 +279,7 @@ class QueueManager {
   }
 
   clearQueue() {
+    console.log('🧹 Limpando fila...');
     this.queue.forEach(player => {
       this.clearInactivityTimer(player.userId);
     });

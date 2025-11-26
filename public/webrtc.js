@@ -24,7 +24,7 @@ class VideoCallManager {
   async startLocalVideo() {
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
 
@@ -127,6 +127,26 @@ class VideoCallManager {
     });
   }
 
+  getSupportedMimeType() {
+    const possibleTypes = [
+      'video/webm;codecs=vp8,opus',
+      'video/webm;codecs=vp8',
+      'video/webm;codecs=h264',
+      'video/webm',
+      'video/mp4'
+    ];
+
+    for (const type of possibleTypes) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        console.log('✅ Codec suportado:', type);
+        return type;
+      }
+    }
+
+    console.warn('⚠️ Nenhum codec preferido suportado, usando padrão');
+    return '';
+  }
+
   startRecording() {
     if (this.isRecording) {
       console.warn('⚠️ Já está gravando');
@@ -153,15 +173,25 @@ class VideoCallManager {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        // Vídeo remoto ocupa a maior parte da tela
         if (remoteVideo?.srcObject && remoteVideo.readyState >= 2) {
-          ctx.drawImage(remoteVideo, 0, 0, 960, 720);
+          ctx.drawImage(remoteVideo, 0, 0, 1280, 720);
         }
 
+        // Vídeo local como PIP (Picture-in-Picture) no canto
         if (localVideo?.srcObject && localVideo.readyState >= 2) {
-          ctx.drawImage(localVideo, 970, 10, 300, 225);
+          const pipWidth = 240;
+          const pipHeight = 180;
+          const margin = 20;
+          const pipX = 1280 - pipWidth - margin;
+          const pipY = 720 - pipHeight - margin;
+          
+          ctx.drawImage(localVideo, pipX, pipY, pipWidth, pipHeight);
+          
+          // Borda ao redor do vídeo local
           ctx.strokeStyle = '#5d98ff';
           ctx.lineWidth = 3;
-          ctx.strokeRect(970, 10, 300, 225);
+          ctx.strokeRect(pipX, pipY, pipWidth, pipHeight);
         }
 
         requestAnimationFrame(drawFrame);
@@ -188,12 +218,17 @@ class VideoCallManager {
 
       this.audioDestination.stream.getAudioTracks().forEach(track => canvasStream.addTrack(track));
 
-      this.mediaRecorder = new MediaRecorder(canvasStream, {
-        mimeType: 'video/webm;codecs=vp9,opus',
-        videoBitsPerSecond: 2500000,
-        audioBitsPerSecond: 128000
-      });
+      const mimeType = this.getSupportedMimeType();
+      const options = mimeType ? { mimeType } : {};
+      
+      if (mimeType.includes('vp8')) {
+        options.videoBitsPerSecond = 2500000;
+      }
+      if (mimeType.includes('opus')) {
+        options.audioBitsPerSecond = 128000;
+      }
 
+      this.mediaRecorder = new MediaRecorder(canvasStream, options);
       this.recordedChunks = [];
       this.recordingStartTime = Date.now();
 
@@ -206,11 +241,11 @@ class VideoCallManager {
       this.isRecording = true;
       drawFrame();
 
-      console.log('🔴 Gravação iniciada');
+      console.log('🔴 Gravação iniciada com codec:', mimeType || 'padrão');
       this.showRecordingIndicator();
     } catch (error) {
       console.error('❌ Erro ao gravar:', error);
-      alert('Erro: ' + error.message);
+      alert('Erro ao iniciar gravação: ' + error.message);
     }
   }
 
@@ -260,18 +295,36 @@ class VideoCallManager {
     console.log('⏹️ Gravação parada');
   }
 
+  toggleRecording() {
+    if (this.isRecording) {
+      this.stopRecording();
+    } else {
+      this.startRecording();
+    }
+  }
+
   async convertAndDownload() {
+    let loading = null;
     try {
       const blob = new Blob(this.recordedChunks, { type: 'video/webm' });
       
-      const loading = document.createElement('div');
+      console.log(`📊 Tamanho do vídeo: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
+      
+      loading = document.createElement('div');
+      loading.id = 'conversion-loading';
       loading.style.cssText = `
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
         background: rgba(0,0,0,0.9); color: white; padding: 30px 50px;
         border-radius: 15px; z-index: 10000; font-size: 18px;
         box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        text-align: center;
       `;
-      loading.textContent = '🎬 Processando vídeo...';
+      loading.innerHTML = `
+        <div>🎬 Processando vídeo...</div>
+        <div style="font-size: 14px; margin-top: 10px; opacity: 0.8;">
+          Isso pode levar alguns segundos
+        </div>
+      `;
       document.body.appendChild(loading);
 
       const formData = new FormData();
@@ -283,11 +336,24 @@ class VideoCallManager {
         credentials: 'include'
       });
 
-      document.body.removeChild(loading);
+      if (loading && loading.parentNode) {
+        document.body.removeChild(loading);
+        loading = null;
+      }
 
-      if (!response.ok) throw new Error('Erro ao converter');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Erro HTTP ${response.status}`);
+      }
 
       const mp4Blob = await response.blob();
+      
+      if (mp4Blob.size === 0) {
+        throw new Error('Arquivo convertido está vazio');
+      }
+      
+      console.log(`📦 Vídeo convertido: ${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB`);
+      
       const url = URL.createObjectURL(mp4Blob);
       
       const a = document.createElement('a');
@@ -296,14 +362,38 @@ class VideoCallManager {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
       
       this.showSuccess();
       console.log('💾 Vídeo salvo em MP4');
     } catch (error) {
-      console.error('❌ Erro:', error);
-      alert('Erro ao processar: ' + error.message);
+      console.error('❌ Erro ao processar:', error);
+      
+      if (loading && loading.parentNode) {
+        document.body.removeChild(loading);
+      }
+      
+      this.showError('Erro ao processar vídeo: ' + error.message);
     }
+  }
+
+  showError(message) {
+    const msg = document.createElement('div');
+    msg.style.cssText = `
+      position: fixed; top: 20px; right: 20px;
+      background: #ff4444; color: white; padding: 15px 25px;
+      border-radius: 10px; z-index: 9999; font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      max-width: 400px;
+    `;
+    msg.textContent = message;
+    document.body.appendChild(msg);
+    setTimeout(() => {
+      if (msg.parentNode) {
+        document.body.removeChild(msg);
+      }
+    }, 5000);
   }
 
   showSuccess() {
@@ -321,3 +411,69 @@ class VideoCallManager {
 }
 
 window.VideoCallManager = VideoCallManager;
+
+// CSS para webcams
+const style = document.createElement('style');
+style.textContent = `
+  .video-container {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .video-wrapper {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .video-wrapper:not(.local) {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 4/3;
+  }
+
+  .video-wrapper.local {
+    width: 200px;
+    aspect-ratio: 4/3;
+  }
+
+  .video-wrapper video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .video-label {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    .video-container {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .video-wrapper:not(.local) {
+      max-width: 100%;
+    }
+
+    .video-wrapper.local {
+      width: 160px;
+    }
+  }
+`;
+document.head.appendChild(style);

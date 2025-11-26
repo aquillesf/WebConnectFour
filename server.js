@@ -64,6 +64,23 @@ const ROWS = 6;
 const COLS = 7;
 
 const createBoard = () => Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+const ffmpeg = require('fluent-ffmpeg');
+
+try {
+  ffmpeg.getAvailableFormats((err, formats) => {
+    if (err) {
+      console.error('⚠️ FFmpeg não encontrado ou mal configurado!');
+      console.error('Por favor, instale o FFmpeg:');
+      console.error('- Ubuntu/Debian: sudo apt-get install ffmpeg');
+      console.error('- macOS: brew install ffmpeg');
+      console.error('- Windows: baixe de https://ffmpeg.org/download.html');
+    } else {
+      console.log('✅ FFmpeg detectado e funcionando');
+    }
+  });
+} catch (error) {
+  console.error('⚠️ Erro ao verificar FFmpeg:', error.message);
+}
 
 const dropPiece = (board, column, token) => {
   for (let row = ROWS - 1; row >= 0; row -= 1) {
